@@ -1,0 +1,1 @@
+<!-- Définition des schémas et structures de données (modèles de base de données) -->

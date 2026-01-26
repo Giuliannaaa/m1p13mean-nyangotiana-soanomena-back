@@ -1,0 +1,1 @@
+<!-- Fonctions intermédiaires qui s'exécutent entre la requête et la réponse (authentification, validation, logs) -->

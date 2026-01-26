@@ -1,0 +1,1 @@
+<!-- Fichiers de configuration de l'application (base de données, paramètres) -->
