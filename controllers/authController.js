@@ -112,7 +112,7 @@ exports.forgotPassword = async (req, res, next) => {
         // Create reset url
         // Assumes frontend runs on port 4200 or similar, but for now we construct a general link
         // You might want to get the frontend URL from config
-        const resetUrl = `${req.protocol}://${req.get('host')}/resetpassword/${resetToken}`;
+        const resetUrl = `${req.protocol}://${req.get('host')}/api/auth/resetpassword/${resetToken}`;
         // Usually points to frontend route like: http://localhost:4200/reset-password/token
 
         const message = `You are receiving this email because you (or someone else) has requested the reset of a password. Please make a PUT request to: \n\n ${resetUrl}`;
@@ -227,6 +227,5 @@ const sendEmail = async (options) => {
     };
 
     const info = await transporter.sendMail(message);
-
     console.log('Message sent: %s', info.messageId);
 };

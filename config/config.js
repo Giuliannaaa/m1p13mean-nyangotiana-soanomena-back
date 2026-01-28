@@ -10,10 +10,10 @@ module.exports = {
     jwtSecret: process.env.JWT_SECRET,
     jwtExpire: process.env.JWT_EXPIRE || '30d',
     email: {
-        host: process.env.EMAIL_HOST,
-        port: process.env.EMAIL_PORT,
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
+        host: process.env.SMTP_HOST || process.env.EMAIL_HOST,
+        port: process.env.SMTP_PORT || process.env.EMAIL_PORT,
+        user: process.env.SMTP_USER || process.env.EMAIL_USER,
+        pass: process.env.SMTP_PASSWORD || process.env.EMAIL_PASS,
         fromName: process.env.FROM_NAME || 'Supermarket App',
         fromEmail: process.env.FROM_EMAIL || 'noreply@supermarket.com'
     }
