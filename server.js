@@ -2,6 +2,7 @@ const express = require("express");
 const dotenv = require("dotenv");
 const connectDB = require("./config/database");
 const authRoutes = require("./routes/authRoutes");
+const produitRoutes = require("./routes/produitRoutes");
 
 // Load env vars
 dotenv.config();
@@ -10,12 +11,14 @@ const app = express();
 
 // Body parser
 app.use(express.json());
+app.use('/uploads', express.static('uploads')); // Make uploads folder static
 
 // Enable CORS
 // app.use(cors());
 
 // Mount routers
 app.use("/api/auth", authRoutes);
+app.use("/api", produitRoutes);
 
 const PORT = process.env.PORT || 5000;
 
