@@ -22,19 +22,43 @@ exports.createProduit = async (req, res) => {
   }
 };
 
+exports.listProduct = async (req, res) => {
+  try {
+    const produits = await Produit.find();
+    res.json(produits);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: error.message });
+  }
+};
 
-/*exports.createProduit = (req, res) => {
-  console.log('BODY', req.body);
-  console.log('FILE', req.file);
+exports.getProductById = async (req, res) => {
+  try {
+    const produit = await Produit.findById(req.params.id);
+    if (!produit) return res.status(404).json({ message: "Produit non trouvé" });
+    res.json(produit);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: error.message });
+  }
+};
 
-  res.json({
-    body: req.body,
-    file: req.file
-  });
+exports.updateProduct = async (req, res) => {
+  try {
+    const produit = await Produit.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    res.json(produit);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: error.message });
+  }
+};
 
-  const imageUrl = req.file
-    ? req.file.filename
-    : null;
-
-  // sauvegarde en base
-};*/
+exports.deleteProduct = async (req, res) => {
+  try {
+    await Produit.findByIdAndDelete(req.params.id);
+    res.json({ message: "Produit supprimé" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: error.message });
+  }
+};
