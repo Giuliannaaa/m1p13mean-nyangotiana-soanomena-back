@@ -6,10 +6,10 @@ const Produit = require('../models/Produits');
 
 // --- Configuration Multer pour upload image ---
 const storage = multer.diskStorage({
-  destination: function(req, file, cb) {
+  destination: function (req, file, cb) {
     cb(null, 'uploads/'); // dossier upload
   },
-  filename: function(req, file, cb) {
+  filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
     cb(null, uniqueSuffix + '-' + file.originalname);
   }
@@ -19,8 +19,8 @@ const upload = multer({ storage: storage });
 // --- Ajouter un produit ---
 router.post('/produits', upload.single('image_Url'), async (req, res) => {
   try {
-    const livraison = req.body.livraison 
-      ? JSON.parse(req.body.livraison) 
+    const livraison = req.body.livraison
+      ? JSON.parse(req.body.livraison)
       : { disponibilite: false, frais: 0 };
 
     const produit = new Produit({
@@ -43,7 +43,7 @@ router.post('/produits', upload.single('image_Url'), async (req, res) => {
 });
 
 // --- Lire tous les produits ---
-router.get('/', async (req, res) => {
+router.get('/produits', async (req, res) => {
   try {
     const produits = await Produit.find();
     res.json(produits);

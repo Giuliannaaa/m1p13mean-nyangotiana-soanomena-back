@@ -19,7 +19,7 @@ const ProduitSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Avant save, si c'est un service, livraison = false + frais = 0
-ProduitSchema.pre('save', function(next) {
+ProduitSchema.pre('save', function (next) {
   if (this.type_produit === 'SERVICE') {
     this.livraison.disponibilite = false;
     this.livraison.frais = 0;
@@ -27,4 +27,4 @@ ProduitSchema.pre('save', function(next) {
   next();
 });
 
-module.exports = mongoose.model('Produits', ProduitSchema);
+module.exports = mongoose.model('Produit', ProduitSchema);

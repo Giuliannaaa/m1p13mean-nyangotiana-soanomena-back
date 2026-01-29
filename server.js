@@ -1,5 +1,6 @@
 const express = require("express");
 const dotenv = require("dotenv");
+const cors = require('cors');
 const connectDB = require("./config/database");
 const authRoutes = require("./routes/authRoutes");
 const produitRoutes = require("./routes/produitRoutes");
@@ -14,7 +15,7 @@ app.use(express.json());
 app.use('/uploads', express.static('uploads')); // Make uploads folder static
 
 // Enable CORS
-// app.use(cors());
+app.use(cors({ origin: 'http://localhost:4200' }));
 
 // Mount routers
 app.use("/api/auth", authRoutes);
