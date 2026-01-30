@@ -45,5 +45,6 @@ const startServer = async () => {
 
 // Route Categorie
 app.use('/categories', require('./routes/categorieRoute'));
+app.use('/boutiques', require('./routes/boutiqueRoutes'));
 
 startServer();
