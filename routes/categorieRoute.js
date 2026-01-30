@@ -1,5 +1,4 @@
 const express = require('express');
-const mongoose = require('mongoose');
 const router = express.Router();
 const Categorie = require('../models/Categorie');
 
@@ -26,13 +25,13 @@ router.get('/', async (req, res) => {
 
 // --- Lire une categorie par ID ---
 router.get('/:id', async (req, res) => {  // ← Enlevé '/categories'
-  try {
-    const categorie = await Categorie.findById(req.params.id);
-    if (!categorie) return res.status(404).json({ message: "Categorie non trouvé" });
-    res.json(categorie);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
+    try {
+        const categorie = await Categorie.findById(req.params.id);
+        if (!categorie) return res.status(404).json({ message: "Categorie non trouvé" });
+        res.json(categorie);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
 });
 
 // --- Mettre à jour une categorie ---
