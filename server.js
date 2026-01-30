@@ -43,4 +43,7 @@ const startServer = async () => {
     }
 };
 
+// Route Categorie
+app.use('/categories', require('./routes/categorieRoute'));
+
 startServer();
