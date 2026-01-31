@@ -8,7 +8,7 @@ const initUserAdmin = () => {
             lastname: 'admin',
             email: 'admin@admin.com',
             password: 'admin',
-            role: 'admin'
+            role: 'Admin'
         });
         console.log('User admin created');
     }
