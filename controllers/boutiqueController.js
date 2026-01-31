@@ -57,3 +57,22 @@ exports.deleteBoutique = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+
+// --- Activer ou désactiver une boutique ---
+exports.toggleBoutiqueStatus = async (req, res) => {
+    try {
+        const boutique = await Boutique.findById(req.params.id);
+        if (!boutique) return res.status(404).json({ message: "Boutique non trouvée" });
+
+        boutique.isValidated = !boutique.isValidated;
+        await boutique.save();
+
+        res.json({
+            message: `Boutique ${boutique.isValidated ? 'activée' : 'désactivée'} avec succès`,
+            isValidated: boutique.isValidated
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
