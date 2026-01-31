@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Promotion = require('../models/Promotions');
-const Promotions = require('../models/Promotions');
+
 // Créer une promotion
 router.post('/', async (req, res) => {
     try {
@@ -25,15 +25,15 @@ router.get('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
     try {
         const promotion = await Promotion.findByIdAndUpdate(req.params.id,
-        req.body, { new: true });
+            req.body, { new: true });
         res.json(promotion);
     } catch (error) {
         res.status(400).json({ message: error.message });
     }
-    });
-    // Supprimer un promotion
-    router.delete('/:id', async (req, res) => {
-        try {
+});
+// Supprimer un promotion
+router.delete('/:id', async (req, res) => {
+    try {
         await Promotion.findByIdAndDelete(req.params.id);
         res.json({ message: "Promotion supprimé" });
     } catch (error) {
