@@ -6,6 +6,7 @@ const initUserAdmin = require("./utils/cron/initUserAdmin");
 const authRoutes = require("./routes/authRoutes");
 const produitRoutes = require("./routes/produitRoutes");
 const promotionRoutes = require('./routes/promotionRoutes');
+const achatRoutes = require('./routes/achatRoutes');
 
 // Load env vars
 dotenv.config();
@@ -48,13 +49,20 @@ const startServer = async () => {
 app.use("/api/auth", authRoutes);
 app.use("/api", produitRoutes);
 
+//Route utilisateur
+app.use('/users', require('./routes/userRoutes'));
+
 /**--- CRUD --- */
 // Route Categorie
 app.use('/categories', require('./routes/categorieRoute'));
 // Route Promotion
 app.use('/', promotionRoutes);
+//Route Boutique
 app.use('/boutiques', require('./routes/boutiqueRoutes'));
-app.use('/users', require('./routes/userRoutes'));
+//Route Achat
+app.use('/achats', achatRoutes); //tsy atao route fa api
+
+
 
 startServer();
 initUserAdmin();
