@@ -18,10 +18,6 @@ app.use('/uploads', express.static('uploads')); // Make uploads folder static
 // Enable CORS
 app.use(cors({ origin: 'http://localhost:4200' }));
 
-// Mount routers
-app.use("/api/auth", authRoutes);
-app.use("/api", produitRoutes);
-
 const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
@@ -44,12 +40,16 @@ const startServer = async () => {
     }
 };
 
-/**--- CRUD --- */
 
+// Mount routers
+app.use("/api/auth", authRoutes);
+app.use("/api", produitRoutes);
+
+/**--- CRUD --- */
 // Route Categorie
 app.use('/categories', require('./routes/categorieRoute'));
 // Route Promotion
 app.use('/', promotionRoutes);
 app.use('/boutiques', require('./routes/boutiqueRoutes'));
-
+app.use('/users', require('./routes/userRoutes'));
 startServer();
