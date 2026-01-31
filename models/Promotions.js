@@ -2,46 +2,15 @@ const mongoose = require('mongoose');
 
 const PromotionSchema = new mongoose.Schema(
   {
-    prod_id: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Produits',
-      required: true
-    },
-
-    type_prom: {
-      type: String,
-      enum: ['POURCENTAGE', 'MONTANT'],
-      required: true
-    },
-
-    montant: {
-      type: mongoose.Schema.Types.Decimal128,
-      required: true
-    },
-
-    code_promo: {
-        type: String,
-        require: null
-    },
-
-    debut: {
-      type: Date,
-      required: true
-    },
-
-    fin: {
-      type: Date,
-      required: true
-    },
-
-    est_Active: {
-      type: Boolean,
-      default: true
-    }
+    prod_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Produit', required: true },
+    type_prom: { type: String, enum: ['POURCENTAGE', 'MONTANT'], required: true },
+    montant: { type: mongoose.Schema.Types.Decimal128, required: true },
+    code_promo: { type: String, require: false },
+    debut: { type: Date, required: true },
+    fin: { type: Date, required: true },
+    est_Active: { type: Boolean, default: true }
   },
-  {
-    timestamps: true
-  }
+  { timestamps: true }
 );
 
 /** CONTRAINTE DATE SI LA DATE D'ENTREE EST APRES LA FIN, C'EST INVALIDE */
