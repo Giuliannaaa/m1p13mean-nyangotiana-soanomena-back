@@ -4,6 +4,7 @@ const cors = require('cors');
 const connectDB = require("./config/database");
 const authRoutes = require("./routes/authRoutes");
 const produitRoutes = require("./routes/produitRoutes");
+const promotionRoutes = require('./routes/promotionRoutes');
 
 // Load env vars
 dotenv.config();
@@ -43,8 +44,12 @@ const startServer = async () => {
     }
 };
 
+/**--- CRUD --- */
+
 // Route Categorie
 app.use('/categories', require('./routes/categorieRoute'));
+// Route Promotion
+app.use('/', promotionRoutes);
 app.use('/boutiques', require('./routes/boutiqueRoutes'));
 
 startServer();
