@@ -9,7 +9,7 @@ exports.createPromotion = async (req, res) => {
     const promotion = new Promotion({
       prod_id: req.body.prod_id,
       type_prom: req.body.type_prom,
-      montant: req.body.montant, // Mongoose convertira automatiquement (Tsy nety le convertir montant en Decimal128)
+      montant: req.body.montant,
       code_promo: req.body.code_promo || null,
       debut: new Date(req.body.debut),
       fin: new Date(req.body.fin),
@@ -76,7 +76,7 @@ exports.updatePromotion = async (req, res) => {
     const promotion = await Promotion.findByIdAndUpdate(
       req.params.id,
       req.body,
-      { new: true, runValidators: true } // ← Ajoute runValidators pour valider les contraintes
+      { new: true, runValidators: true }
     );
 
     if (!promotion) {
@@ -85,13 +85,13 @@ exports.updatePromotion = async (req, res) => {
 
     res.json(promotion);
   } catch (error) {
-    console.error('Erreur update promotion:', error); // ← Pour déboguer
+    console.error('Erreur update promotion:', error);
     res.status(400).json({ message: error.message });
   }
 };
 
 /**
- *  Supprimer une promotion
+ * Supprimer une promotion
  */
 exports.deletePromotion = async (req, res) => {
   try {
@@ -103,7 +103,7 @@ exports.deletePromotion = async (req, res) => {
 };
 
 /**
- *  Activer / désactiver une promotion
+ * Activer / désactiver une promotion
  */
 exports.togglePromotionStatus = async (req, res) => {
   try {
@@ -119,11 +119,13 @@ exports.togglePromotionStatus = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
+}; // ← Ferme bien togglePromotionStatus ici
 
-  /** C'EST POUR AFFICHER LE NOM DE LA PROMOTION DANS LE FRONT, UTILISER POPULATE 
-   * Sans populate, prod_id = juste un ID, avec populate, tu as prod_id.nom_prod
-   */
-  exports.getAllPromotions = async (req, res) => {
+/**
+ * Afficher toutes les promotions avec les noms des produits
+ * Sans populate, prod_id = juste un ID, avec populate, tu as prod_id.nom_prod
+ */
+exports.getAllPromotions = async (req, res) => {
   try {
     const promotions = await Promotion
       .find()
@@ -135,4 +137,26 @@ exports.togglePromotionStatus = async (req, res) => {
   }
 };
 
+/**
+ * Récupérer la promotion active pour un produit
+ */
+exports.getPromotionActiveByProduit = async (req, res) => {
+  try {
+    const now = new Date();
+    
+    const promotion = await Promotion.findOne({
+      prod_id: req.params.prod_id,
+      est_Active: true,
+      debut: { $lte: now },
+      fin: { $gte: now }
+    });
+    
+    if (!promotion) {
+      return res.status(404).json({ message: 'Aucune promotion active' });
+    }
+    
+    res.json(promotion);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
