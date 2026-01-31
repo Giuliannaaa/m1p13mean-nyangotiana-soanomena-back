@@ -2,6 +2,7 @@ const express = require("express");
 const dotenv = require("dotenv");
 const cors = require('cors');
 const connectDB = require("./config/database");
+const initUserAdmin = require("./utils/cron/initUserAdmin");
 const authRoutes = require("./routes/authRoutes");
 const produitRoutes = require("./routes/produitRoutes");
 const promotionRoutes = require('./routes/promotionRoutes');
@@ -34,6 +35,8 @@ const startServer = async () => {
             server.close(() => process.exit(1));
         });
 
+        // Create admin user
+
     } catch (error) {
         console.log("Failed to connect to the database. Server shutting down.");
         process.exit(1);
@@ -52,4 +55,6 @@ app.use('/categories', require('./routes/categorieRoute'));
 app.use('/', promotionRoutes);
 app.use('/boutiques', require('./routes/boutiqueRoutes'));
 app.use('/users', require('./routes/userRoutes'));
+
 startServer();
+initUserAdmin();

@@ -18,7 +18,8 @@ exports.register = async (req, res, next) => {
             email,
             password,
             role,
-            phone
+            phone,
+            isActive: role === 'Boutique' ? false : true // Boutiques need validation
         });
 
         sendTokenResponse(user, 200, res);
@@ -52,6 +53,11 @@ exports.login = async (req, res, next) => {
 
         if (!isMatch) {
             return res.status(401).json({ success: false, error: 'Invalid credentials' });
+        }
+
+        // Check if user is validated (only for Boutique role)
+        if (user.role === 'Boutique' && !user.isActive) {
+            return res.status(401).json({ success: false, error: "Your store account has not yet been validated by the administrator." });
         }
 
         sendTokenResponse(user, 200, res);
