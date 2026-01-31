@@ -14,7 +14,10 @@ exports.createBoutique = async (req, res) => {
 // --- Récupérer toutes les boutiques ---
 exports.getBoutiques = async (req, res) => {
     try {
-        const boutiques = await Boutique.find();
+        // Si showAll est présent dans la requête (pour l'admin), on montre tout
+        // Sinon, on ne montre que les boutiques validées
+        const filter = req.query.showAll === 'true' ? {} : { isValidated: true };
+        const boutiques = await Boutique.find(filter);
         res.json(boutiques);
     } catch (error) {
         res.status(500).json({ message: error.message });
