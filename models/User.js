@@ -45,11 +45,28 @@ const UserSchema = new mongoose.Schema({
         file: String
     },
 
+    /*store_id: { 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: 'Boutique',
+        required: function() { 
+        return this.role === 'Boutique'; // Obligatoire seulement pour les boutiques
+        }
+    */
+        
     isActive: { type: Boolean, default: true },
     resetPasswordToken: String,
     resetPasswordExpire: Date,
     createdAt: { type: Date, default: Date.now }
 });
+
+
+/*// Virtuel pour récupérer la boutique de l'utilisateur
+        UserSchema.virtual('boutique', {
+            ref: 'Boutique',
+            localField: '_id',
+            foreignField: 'ownerId',
+            justOne: true
+        });*/
 
 // Encrypt password using bcrypt
 UserSchema.pre('save', async function (next) {

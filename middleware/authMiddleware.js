@@ -34,6 +34,22 @@ exports.protect = async (req, res, next) => {
             return res.status(401).json({ success: false, error: 'Not authorized to access this route (user not found)' });
         }
 
+        // Récupérer l'utilisateur
+        /*req.user = await User.findById(decoded.id).select('-password');
+        
+        if (!req.user) {
+        return res.status(401).json({ 
+            success: false,
+            message: 'Utilisateur non trouvé' 
+        });
+        }
+
+        // Si c'est un propriétaire de boutique, récupérer sa boutique
+        if (req.user.role === 'Boutique') {
+        req.boutique = await Boutique.findOne({ ownerId: req.user._id });
+        }*/
+
+
         next();
     } catch (err) {
         console.error(err);

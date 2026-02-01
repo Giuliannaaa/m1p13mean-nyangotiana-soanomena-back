@@ -8,7 +8,7 @@ const livraisonSchema = new mongoose.Schema({
 
 // Schema principal produit
 const ProduitSchema = new mongoose.Schema({
-  store_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Boutique', required: false },
+  store_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Boutique', required: true },
   nom_prod: { type: String, required: true, trim: true },
   descriptions: { type: String, trim: true },
   prix_unitaire: { type: mongoose.Schema.Types.Decimal128, required: true },
