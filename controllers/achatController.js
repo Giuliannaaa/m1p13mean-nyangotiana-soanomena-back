@@ -60,16 +60,25 @@ exports.createAchat = async (req, res) => {
     
     // Créer l'achat
     const achat = new Achat({
-      prod_id,
-      quantity,
-      prix_unitaire: prixUnitaire,
+      client_id: req.userId || null, // si tu as l’auth
+      store_id: req.body.store_id || null,
       total_achat,
       reduction,
       frais_livraison: frais,
       avec_livraison: avec_livraison || false,
       total_reel,
+      items: [{
+        prod_id: prod_id,
+        nom_prod: produit.nom_prod,
+        image_url: produit.image_Url || "",
+        quantity: quantity,
+        prix_unitaire: prixUnitaire
+      }],
+
       promotion_id: promotion ? promotion._id : null
     });
+
+
     
     await achat.save();
     
@@ -93,15 +102,17 @@ exports.createAchat = async (req, res) => {
 exports.getAchats = async (req, res) => {
   try {
     const achats = await Achat.find()
+      .populate('items.prod_id', 'nom_prod prix_unitaire image_Url') // ← ajouter image ici
       .populate('client_id', 'name email')
       .populate('store_id', 'name')
-      .populate('items.prod_id', 'nom_prod prix_unitaire')
       .sort({ createdAt: -1 });
+
     res.json(achats);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
+
 
 /**
  * Récupérer un achat par ID
@@ -109,6 +120,7 @@ exports.getAchats = async (req, res) => {
 exports.getAchatById = async (req, res) => {
   try {
     const achat = await Achat.findById(req.params.id)
+      .populate('items.prod_id', 'nom_prod prix_unitaire image_Url')
       .populate('client_id', 'name email')
       .populate('store_id', 'name')
       .populate('items.prod_id', 'nom_prod prix_unitaire');
