@@ -1,64 +1,237 @@
+const mongoose = require('mongoose');
 const Produit = require('../models/Produits');
+const Boutique = require('../models/Boutique');
 
+/**
+ * Créer un produit (associé à la boutique de l'utilisateur connecté)
+ */
 exports.createProduit = async (req, res) => {
   try {
-    const data = req.body;
+    let store_id;
 
-    if (data.livraison) {
-      data.livraison = JSON.parse(data.livraison);
+    // Si l'utilisateur est un propriétaire de boutique
+    if (req.user.role === 'Boutique') {
+      if (!req.boutique) {
+        return res.status(403).json({
+          success: false,
+          message: 'Vous devez d\'abord créer une boutique pour ajouter des produits'
+        });
+      }
+
+      if (!req.boutique.isValidated) {
+        return res.status(403).json({
+          success: false,
+          message: 'Votre boutique doit être validée pour ajouter des produits'
+        });
+      }
+
+      store_id = req.boutique._id;
+    }
+    // Si c'est un admin, il peut spécifier le store_id
+    else if (req.user.role === 'Admin') {
+      store_id = req.body.store_id;
+
+      if (!store_id) {
+        return res.status(400).json({
+          success: false,
+          message: 'L\'admin doit spécifier un store_id'
+        });
+      }
     }
 
-    if (req.file) {
-      data.image_Url = req.file.filename;
-    }
+    // Parser la livraison si elle est en string (à cause de multer)
+    const livraison = req.body.livraison
+      ? (typeof req.body.livraison === 'string'
+        ? JSON.parse(req.body.livraison)
+        : req.body.livraison)
+      : { disponibilite: false, frais: 0 };
 
-    const produit = new Produit(data);
+    const produit = new Produit({
+      store_id: store_id,
+      nom_prod: req.body.nom_prod,
+      descriptions: req.body.descriptions,
+      prix_unitaire: req.body.prix_unitaire, // Mongoose convertira automatiquement
+      stock_etat: req.body.stock_etat === 'true' || req.body.stock_etat === true,
+      type_produit: req.body.type_produit,
+      livraison: livraison,
+      image_Url: req.file ? req.file.path : '' // ← Fichier uploadé par multer
+    });
+
     await produit.save();
 
-    res.status(201).json(produit);
+    // Peupler les infos de la boutique
+    await produit.populate('store_id', 'name description');
+
+    res.status(201).json({
+      success: true,
+      message: 'Produit ajouté avec succès',
+      data: produit
+    });
   } catch (error) {
-    console.error(error);
-    res.status(400).json({ message: error.message });
+    console.error('Erreur création produit:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
 };
 
-exports.listProduct = async (req, res) => {
+/**
+ * Récupérer tous les produits
+ */
+exports.getProduits = async (req, res) => {
   try {
-    const produits = await Produit.find();
-    res.json(produits);
+    let query = {};
+
+    // DEBUG - À retirer après résolution
+    console.log('User role:', req.user.role);
+    console.log('Boutique attached:', req.boutique);
+
+    // Si l'utilisateur est propriétaire de boutique, montrer seulement ses produits
+    if (req.user.role === 'Boutique' && req.boutique) {
+      query.store_id = req.boutique._id;
+    }
+    // Si c'est un admin ou un acheteur, montrer tous les produits des boutiques validées
+    else {
+      const boutiquesValidees = await Boutique.find({ isValidated: true }).select('_id');
+      query.store_id = { $in: boutiquesValidees.map(b => b._id) };
+    }
+
+    const produits = await Produit.find(query)
+      .populate('store_id', 'name description categoryId')
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      count: produits.length,
+      data: produits
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
 };
 
-exports.getProductById = async (req, res) => {
+/**
+ * Récupérer un produit par ID
+ */
+exports.getProduitById = async (req, res) => {
+  try {
+    const produit = await Produit.findById(req.params.id)
+      .populate('store_id', 'name description categoryId ownerId');
+
+    if (!produit) {
+      return res.status(404).json({
+        success: false,
+        message: 'Produit non trouvé'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: produit
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+/**
+ * Mettre à jour un produit
+ */
+exports.updateProduit = async (req, res) => {
+  try {
+    let produit = await Produit.findById(req.params.id);
+
+    if (!produit) {
+      return res.status(404).json({
+        success: false,
+        message: 'Produit non trouvé'
+      });
+    }
+
+    // Vérifier les permissions
+    if (req.user.role === 'Boutique') {
+      if (!req.boutique || produit.store_id.toString() !== req.boutique._id.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: 'Vous ne pouvez modifier que vos propres produits'
+        });
+      }
+    }
+
+    // Ne pas permettre de changer le store_id (sauf pour admin)
+    if (req.user.role !== 'Admin') {
+      delete req.body.store_id;
+    }
+
+    // Parser la livraison si elle est en string (à cause de multer)
+    if (req.body.livraison && typeof req.body.livraison === 'string') {
+      req.body.livraison = JSON.parse(req.body.livraison);
+    }
+
+    // Si un nouveau fichier est uploadé
+    if (req.file) {
+      req.body.image_Url = req.file.path;
+    }
+
+    produit = await Produit.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    ).populate('store_id', 'name descriptions');
+
+    res.json({
+      success: true,
+      data: produit
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+/**
+ * Supprimer un produit
+ */
+exports.deleteProduit = async (req, res) => {
   try {
     const produit = await Produit.findById(req.params.id);
-    if (!produit) return res.status(404).json({ message: "Produit non trouvé" });
-    res.json(produit);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: error.message });
-  }
-};
 
-exports.updateProduct = async (req, res) => {
-  try {
-    const produit = await Produit.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    res.json(produit);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: error.message });
-  }
-};
+    if (!produit) {
+      return res.status(404).json({
+        success: false,
+        message: 'Produit non trouvé'
+      });
+    }
 
-exports.deleteProduct = async (req, res) => {
-  try {
+    // Vérifier les permissions
+    if (req.user.role === 'Boutique') {
+      if (!req.boutique || produit.store_id.toString() !== req.boutique._id.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: 'Vous ne pouvez supprimer que vos propres produits'
+        });
+      }
+    }
+
     await Produit.findByIdAndDelete(req.params.id);
-    res.json({ message: "Produit supprimé" });
+
+    res.json({
+      success: true,
+      message: 'Produit supprimé avec succès'
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
 };

@@ -79,3 +79,28 @@ exports.toggleBoutiqueStatus = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+/**
+ * Récupérer la boutique par propriétaire (ownerId)
+ */
+exports.getBoutiqueByOwner = async (req, res) => {
+    try {
+        const boutique = await Boutique.findOne({ ownerId: req.params.ownerId });
+
+        if (!boutique) {
+            return res.status(404).json({
+                success: false,
+                message: 'Aucune boutique trouvée pour cet utilisateur'
+            });
+        }
+
+        res.json({
+            success: true,
+            data: boutique
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};

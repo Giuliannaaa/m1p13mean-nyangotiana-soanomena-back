@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const Boutique = require('../models/Boutique');
 const config = require('../config/config');
 
 // Protect routes
@@ -28,16 +29,31 @@ exports.protect = async (req, res, next) => {
 
         console.log(decoded);
 
-        req.user = await User.findById(decoded.id);
+        req.user = await User.findById(decoded.id).select('-password');
 
         if (!req.user) {
             return res.status(401).json({ success: false, error: 'Not authorized to access this route (user not found)' });
         }
 
+        // Si c'est un propriétaire de boutique, récupérer sa boutique
+        if (req.user.role === 'Boutique' || req.user.role === 'boutique') {
+            try {
+                req.boutique = await Boutique.findOne({ ownerId: req.user._id });
+            } catch (boutiqueError) {
+                console.error('Error fetching boutique in middleware:', boutiqueError);
+                // We don't necessarily want to block the whole request if boutique fetch fails, 
+                // but for now let's just log it.
+            }
+        }
+
         next();
     } catch (err) {
-        console.error(err);
-        return res.status(401).json({ success: false, error: 'Not authorized to access this route' });
+        console.error('Auth Middleware Critical Error:', err); // Modified log for catch block
+        return res.status(401).json({
+            success: false,
+            error: 'Not authorized to access this route',
+            details: err.message // Changed to always include err.message
+        });
     }
 };
 

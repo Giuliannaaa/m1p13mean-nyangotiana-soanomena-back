@@ -1,8 +1,8 @@
 const express = require('express');
 const multer = require('multer');
-const mongoose = require('mongoose');
 const router = express.Router();
-const Produit = require('../models/Produits');
+const produitController = require('../controllers/produitController');
+const { protect, authorize } = require('../middleware/authMiddleware');
 
 // --- Configuration Multer pour upload image ---
 const storage = multer.diskStorage({
@@ -16,78 +16,35 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
-// --- Ajouter un produit ---
-router.post('/produits', upload.single('image_Url'), async (req, res) => {
-  try {
-    const livraison = req.body.livraison
-      ? JSON.parse(req.body.livraison)
-      : { disponibilite: false, frais: 0 };
+// Routes protégées avec Multer
+router.post('/produits',
+  protect,
+  authorize('Admin', 'Boutique'),
+  upload.single('image_Url'), // ← Multer en premier
+  produitController.createProduit
+);
 
-    const produit = new Produit({
-      store_id: req.body.store_id || null,
-      nom_prod: req.body.nom_prod,
-      descriptions: req.body.descriptions,
-      prix_unitaire: mongoose.Types.Decimal128.fromString(req.body.prix_unitaire),
-      stock_etat: req.body.stock_etat === 'true',
-      type_produit: req.body.type_produit,
-      livraison: livraison,
-      image_Url: req.file ? req.file.path : ''
-    });
+router.get('/produits',
+  protect,
+  produitController.getProduits
+);
 
-    await produit.save();
-    res.status(201).json({ message: 'Produit ajouté avec succès', produit });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Erreur serveur', error: err.message });
-  }
-});
+router.get('/produits/:id',
+  protect,
+  produitController.getProduitById
+);
 
-// --- Lire tous les produits ---
-router.get('/produits', async (req, res) => {
-  try {
-    const produits = await Produit.find();
-    res.json(produits);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
+router.put('/produits/:id',
+  protect,
+  authorize('Admin', 'Boutique'),
+  upload.single('image_Url'), // ← Multer pour la modification aussi
+  produitController.updateProduit
+);
 
-// --- Lire un produit par ID ---
-router.get('/produits/:id', async (req, res) => {
-  try {
-    const produit = await Produit.findById(req.params.id);
-    if (!produit) return res.status(404).json({ message: "Produit non trouvé" });
-    res.json(produit);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// --- Modifier un produit ---
-router.put('/produits/:id', upload.single('image_Url'), async (req, res) => {
-  try {
-    if (req.body.livraison && typeof req.body.livraison === 'string') {
-      req.body.livraison = JSON.parse(req.body.livraison);
-    }
-    if (req.file) {
-      req.body.image_Url = req.file.path;
-    }
-
-    const produit = await Produit.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    res.json(produit);
-  } catch (err) {
-    res.status(400).json({ message: err.message });
-  }
-});
-
-// --- Supprimer un produit ---
-router.delete('/produits/:id', async (req, res) => {
-  try {
-    await Produit.findByIdAndDelete(req.params.id);
-    res.json({ message: "Produit supprimé" });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
+router.delete('/produits/:id',
+  protect,
+  authorize('Admin', 'Boutique'),
+  produitController.deleteProduit
+);
 
 module.exports = router;
