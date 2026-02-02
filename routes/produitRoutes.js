@@ -2,7 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const router = express.Router();
 const produitController = require('../controllers/produitController');
-const { protect, authorize } = require('../middleware/auth');
+const { protect, authorize } = require('../middleware/authMiddleware');
 
 // --- Configuration Multer pour upload image ---
 const storage = multer.diskStorage({
@@ -17,33 +17,33 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 // Routes protégées avec Multer
-router.post('/produits', 
-  protect, 
+router.post('/produits',
+  protect,
   authorize('Admin', 'Boutique'),
   upload.single('image_Url'), // ← Multer en premier
   produitController.createProduit
 );
 
-router.get('/produits', 
-  protect, 
+router.get('/produits',
+  protect,
   produitController.getProduits
 );
 
-router.get('/produits/:id', 
-  protect, 
+router.get('/produits/:id',
+  protect,
   produitController.getProduitById
 );
 
-router.put('/produits/:id', 
-  protect, 
+router.put('/produits/:id',
+  protect,
   authorize('Admin', 'Boutique'),
   upload.single('image_Url'), // ← Multer pour la modification aussi
   produitController.updateProduit
 );
 
-router.delete('/produits/:id', 
-  protect, 
-  authorize('Admin', 'Boutique'), 
+router.delete('/produits/:id',
+  protect,
+  authorize('Admin', 'Boutique'),
   produitController.deleteProduit
 );
 

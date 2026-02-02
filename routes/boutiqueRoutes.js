@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { createBoutique, getBoutiques, getBoutiqueById, updateBoutique, deleteBoutique, toggleBoutiqueStatus } = require('../controllers/boutiqueController');
+const { createBoutique, getBoutiques, getBoutiqueById, getBoutiqueByOwner, updateBoutique, deleteBoutique, toggleBoutiqueStatus } = require('../controllers/boutiqueController');
 
 
 // --- Créer une boutique ---
@@ -8,6 +8,9 @@ router.post('/', createBoutique);
 
 // --- Récupérer toutes les boutiques ---
 router.get('/', getBoutiques);
+
+// --- Récupérer une boutique par ownerId ---
+router.get('/owner/:ownerId', getBoutiqueByOwner);
 
 // --- Récupérer une boutique par ID ---
 router.get('/:id', getBoutiqueById);
