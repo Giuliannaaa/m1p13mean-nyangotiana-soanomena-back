@@ -12,38 +12,38 @@ exports.createProduit = async (req, res) => {
     // Si l'utilisateur est un propriétaire de boutique
     if (req.user.role === 'Boutique') {
       if (!req.boutique) {
-        return res.status(403).json({ 
+        return res.status(403).json({
           success: false,
-          message: 'Vous devez d\'abord créer une boutique pour ajouter des produits' 
+          message: 'Vous devez d\'abord créer une boutique pour ajouter des produits'
         });
       }
-      
+
       if (!req.boutique.isValidated) {
-        return res.status(403).json({ 
+        return res.status(403).json({
           success: false,
-          message: 'Votre boutique doit être validée pour ajouter des produits' 
+          message: 'Votre boutique doit être validée pour ajouter des produits'
         });
       }
-      
+
       store_id = req.boutique._id;
-    } 
+    }
     // Si c'est un admin, il peut spécifier le store_id
     else if (req.user.role === 'Admin') {
       store_id = req.body.store_id;
-      
+
       if (!store_id) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           success: false,
-          message: 'L\'admin doit spécifier un store_id' 
+          message: 'L\'admin doit spécifier un store_id'
         });
       }
     }
 
     // Parser la livraison si elle est en string (à cause de multer)
     const livraison = req.body.livraison
-      ? (typeof req.body.livraison === 'string' 
-          ? JSON.parse(req.body.livraison) 
-          : req.body.livraison)
+      ? (typeof req.body.livraison === 'string'
+        ? JSON.parse(req.body.livraison)
+        : req.body.livraison)
       : { disponibilite: false, frais: 0 };
 
     const produit = new Produit({
@@ -58,10 +58,10 @@ exports.createProduit = async (req, res) => {
     });
 
     await produit.save();
-    
+
     // Peupler les infos de la boutique
     await produit.populate('store_id', 'name description');
-    
+
     res.status(201).json({
       success: true,
       message: 'Produit ajouté avec succès',
@@ -69,9 +69,9 @@ exports.createProduit = async (req, res) => {
     });
   } catch (error) {
     console.error('Erreur création produit:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: error.message 
+      message: error.message
     });
   }
 };
@@ -82,7 +82,11 @@ exports.createProduit = async (req, res) => {
 exports.getProduits = async (req, res) => {
   try {
     let query = {};
-    
+
+    // DEBUG - À retirer après résolution
+    console.log('User role:', req.user.role);
+    console.log('Boutique attached:', req.boutique);
+
     // Si l'utilisateur est propriétaire de boutique, montrer seulement ses produits
     if (req.user.role === 'Boutique' && req.boutique) {
       query.store_id = req.boutique._id;
@@ -92,7 +96,7 @@ exports.getProduits = async (req, res) => {
       const boutiquesValidees = await Boutique.find({ isValidated: true }).select('_id');
       query.store_id = { $in: boutiquesValidees.map(b => b._id) };
     }
-    
+
     const produits = await Produit.find(query)
       .populate('store_id', 'name description categoryId')
       .sort({ createdAt: -1 });
@@ -103,9 +107,9 @@ exports.getProduits = async (req, res) => {
       data: produits
     });
   } catch (error) {
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: error.message 
+      message: error.message
     });
   }
 };
@@ -117,11 +121,11 @@ exports.getProduitById = async (req, res) => {
   try {
     const produit = await Produit.findById(req.params.id)
       .populate('store_id', 'name description categoryId ownerId');
-    
+
     if (!produit) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: 'Produit non trouvé' 
+        message: 'Produit non trouvé'
       });
     }
 
@@ -130,9 +134,9 @@ exports.getProduitById = async (req, res) => {
       data: produit
     });
   } catch (error) {
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: error.message 
+      message: error.message
     });
   }
 };
@@ -143,20 +147,20 @@ exports.getProduitById = async (req, res) => {
 exports.updateProduit = async (req, res) => {
   try {
     let produit = await Produit.findById(req.params.id);
-    
+
     if (!produit) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: 'Produit non trouvé' 
+        message: 'Produit non trouvé'
       });
     }
 
     // Vérifier les permissions
     if (req.user.role === 'Boutique') {
       if (!req.boutique || produit.store_id.toString() !== req.boutique._id.toString()) {
-        return res.status(403).json({ 
+        return res.status(403).json({
           success: false,
-          message: 'Vous ne pouvez modifier que vos propres produits' 
+          message: 'Vous ne pouvez modifier que vos propres produits'
         });
       }
     }
@@ -187,9 +191,9 @@ exports.updateProduit = async (req, res) => {
       data: produit
     });
   } catch (error) {
-    res.status(400).json({ 
+    res.status(400).json({
       success: false,
-      message: error.message 
+      message: error.message
     });
   }
 };
@@ -200,34 +204,34 @@ exports.updateProduit = async (req, res) => {
 exports.deleteProduit = async (req, res) => {
   try {
     const produit = await Produit.findById(req.params.id);
-    
+
     if (!produit) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: 'Produit non trouvé' 
+        message: 'Produit non trouvé'
       });
     }
 
     // Vérifier les permissions
     if (req.user.role === 'Boutique') {
       if (!req.boutique || produit.store_id.toString() !== req.boutique._id.toString()) {
-        return res.status(403).json({ 
+        return res.status(403).json({
           success: false,
-          message: 'Vous ne pouvez supprimer que vos propres produits' 
+          message: 'Vous ne pouvez supprimer que vos propres produits'
         });
       }
     }
 
     await Produit.findByIdAndDelete(req.params.id);
-    
-    res.json({ 
+
+    res.json({
       success: true,
-      message: 'Produit supprimé avec succès' 
+      message: 'Produit supprimé avec succès'
     });
   } catch (error) {
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: error.message 
+      message: error.message
     });
   }
 };

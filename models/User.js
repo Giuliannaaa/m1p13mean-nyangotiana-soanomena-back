@@ -52,7 +52,7 @@ const UserSchema = new mongoose.Schema({
         return this.role === 'Boutique'; // Obligatoire seulement pour les boutiques
         }
     */
-        
+
     isActive: { type: Boolean, default: true },
     resetPasswordToken: String,
     resetPasswordExpire: Date,
@@ -60,13 +60,13 @@ const UserSchema = new mongoose.Schema({
 });
 
 
-/*// Virtuel pour récupérer la boutique de l'utilisateur
-        UserSchema.virtual('boutique', {
-            ref: 'Boutique',
-            localField: '_id',
-            foreignField: 'ownerId',
-            justOne: true
-        });*/
+// Virtuel pour récupérer la boutique de l'utilisateur
+UserSchema.virtual('boutique', {
+    ref: 'Boutique',
+    localField: '_id',
+    foreignField: 'ownerId',
+    justOne: true
+});
 
 // Encrypt password using bcrypt
 UserSchema.pre('save', async function (next) {
