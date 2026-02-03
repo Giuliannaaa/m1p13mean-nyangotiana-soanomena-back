@@ -16,6 +16,13 @@ const ProduitSchema = new mongoose.Schema({
   type_produit: { type: String, enum: ['PRODUIT', 'SERVICE'], required: true },
   livraison: livraisonSchema,
   image_Url: { type: String, default: '' }
+  /*images_Url: [{ // ← CHANGÉ : tableau d'images au lieu d'une seule
+    type: String
+  }],
+  image_principale: { // ← Image à afficher en premier
+    type: Number,
+    default: 0 // Index de l'image principale dans le tableau
+  }*/
 }, { timestamps: true });
 
 // Avant save, si c'est un service, livraison = false + frais = 0
