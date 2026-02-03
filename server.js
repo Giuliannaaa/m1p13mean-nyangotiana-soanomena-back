@@ -57,6 +57,8 @@ app.use('/users', require('./routes/userRoutes'));
 app.use('/categories', require('./routes/categorieRoute'));
 // Route Promotion
 app.use('/', promotionRoutes);
+//app.use('/api', promotionRoutes);
+
 //Route Boutique
 app.use('/boutiques', require('./routes/boutiqueRoutes'));
 //Route Achat
