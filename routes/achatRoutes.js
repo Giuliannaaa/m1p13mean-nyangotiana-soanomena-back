@@ -3,6 +3,8 @@ const router = express.Router();
 const achatController = require('../controllers/achatController');
 
 // --- Routes ---
+
+router.post('/ajouter/:prod_id', achatController.createAchat);
 // CREATE achat
 router.post('/', achatController.createAchat);
 
