@@ -140,7 +140,7 @@ exports.getAllPromotions = async (req, res) => {
 /**
  * Récupérer la promotion active pour un produit
  */
-exports.getPromotionActiveByProduit = async (req, res) => {
+/*exports.getPromotionActiveByProduit = async (req, res) => {
   try {
     const now = new Date();
     
@@ -158,5 +158,26 @@ exports.getPromotionActiveByProduit = async (req, res) => {
     res.json(promotion);
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};*/
+exports.getPromotionActiveByProduit = async (req, res) => {
+  try {
+    const { prod_id } = req.params;
+    const now = new Date();
+    
+    const promotion = await Promotion.findOne({
+      prod_id: prod_id,
+      est_Active: true,
+      debut: { $lte: now },
+      fin: { $gte: now }
+    });
+    
+    if (!promotion) {
+      return res.status(404).json({ message: 'Aucune promotion active' });
+    }
+    
+    res.json(promotion);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 };

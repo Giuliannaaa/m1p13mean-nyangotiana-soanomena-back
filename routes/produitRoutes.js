@@ -25,12 +25,12 @@ router.post('/produits',
 );
 
 router.get('/produits',
-  protect,
+  //protect,
   produitController.getProduits
 );
 
 router.get('/produits/:id',
-  protect,
+  //protect,
   produitController.getProduitById
 );
 

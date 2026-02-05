@@ -1,6 +1,6 @@
 const Achat = require('../models/Achat');
 const Promotion = require('../models/Promotions');
-const Produit = require('../models/Produits'); // ← Ajouter
+const Produit = require('../models/Produits');
 
 /**
  * Récupérer la promotion active pour un produit
@@ -39,13 +39,20 @@ const calculerReduction = (prix_unitaire, quantite, promotion) => {
  */
 exports.createAchat = async (req, res) => {
   try {
-    const { prod_id, quantity, frais_livraison, avec_livraison } = req.body;
+    // ✅ Récupérer prod_id depuis les paramètres URL, pas le body
+    const { prod_id } = req.params;
+    const { quantity, frais_livraison, avec_livraison } = req.body;
+    
+    console.log('Paramètres reçus:', { prod_id, quantity, frais_livraison, avec_livraison });
     
     // Récupérer le produit pour avoir le prix
     const produit = await Produit.findById(prod_id);
     if (!produit) {
+      console.log('Produit non trouvé avec l\'ID:', prod_id);
       return res.status(404).json({ message: 'Produit non trouvé' });
     }
+    
+    console.log('Produit trouvé:', produit.nom_prod);
     
     const prixUnitaire = parseFloat(produit.prix_unitaire.toString());
     
@@ -60,7 +67,7 @@ exports.createAchat = async (req, res) => {
     
     // Créer l'achat
     const achat = new Achat({
-      client_id: req.userId || null, // si tu as l’auth
+      client_id: req.userId || null, // si tu as l'auth
       store_id: req.body.store_id || null,
       total_achat,
       reduction,
@@ -74,15 +81,15 @@ exports.createAchat = async (req, res) => {
         quantity: quantity,
         prix_unitaire: prixUnitaire
       }],
-
       promotion_id: promotion ? promotion._id : null
     });
 
-
-    
     await achat.save();
     
+    console.log('Achat créé avec succès:', achat._id);
+    
     res.status(201).json({
+      success: true,
       achat,
       promotion_appliquee: promotion ? {
         type: promotion.type_prom,
@@ -102,7 +109,7 @@ exports.createAchat = async (req, res) => {
 exports.getAchats = async (req, res) => {
   try {
     const achats = await Achat.find()
-      .populate('items.prod_id', 'nom_prod prix_unitaire image_Url') // ← ajouter image ici
+      .populate('items.prod_id', 'nom_prod prix_unitaire image_Url')
       .populate('client_id', 'name email')
       .populate('store_id', 'name')
       .sort({ createdAt: -1 });
