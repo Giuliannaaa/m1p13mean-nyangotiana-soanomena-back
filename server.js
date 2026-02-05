@@ -63,6 +63,7 @@ app.use('/', promotionRoutes);
 app.use('/boutiques', require('./routes/boutiqueRoutes'));
 //Route Achat
 app.use('/achats', achatRoutes); //tsy atao route fa api
+//app.use('/api/achats', require('./routes/achats'));
 
 
 
