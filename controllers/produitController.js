@@ -1,6 +1,8 @@
 const mongoose = require('mongoose');
 const Produit = require('../models/Produits');
 const Boutique = require('../models/Boutique');
+const jwt = require('jsonwebtoken');
+const config = require('../config/config');
 
 /**
  * Créer un produit (associé à la boutique de l'utilisateur connecté)
@@ -81,25 +83,54 @@ exports.createProduit = async (req, res) => {
  */
 exports.getProduits = async (req, res) => {
   try {
+    let token;
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+      token = req.headers.authorization.split(' ')[1];
+    }
+
+    // Vérifier si le token existe
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Token non fourni'
+      });
+    }
+
+    const decodedToken = jwt.verify(token, config.jwtSecret);
+    const role = decodedToken.role;
+    console.log('User role:', role);
+
+    const boutiqueRattachee = await Boutique.findOne({ ownerId: decodedToken.id });
+    console.log('Boutique attached:', boutiqueRattachee);
+
     let query = {};
 
-    // DEBUG - À retirer après résolution
-    console.log('User role:', req.user.role);
-    console.log('Boutique attached:', req.boutique);
-
-    // Si l'utilisateur est propriétaire de boutique, montrer seulement ses produits
-    if (req.user.role === 'Boutique' && req.boutique) {
-      query.store_id = req.boutique._id;
+    // Si l'utilisateur est propriétaire de boutique
+    if (role === 'Boutique' && boutiqueRattachee) {
+      query.store_id = boutiqueRattachee._id;
     }
-    // Si c'est un admin ou un acheteur, montrer tous les produits des boutiques validées
-    else {
+    // Si c'est un acheteur
+    else if (role === 'Acheteur') {
       const boutiquesValidees = await Boutique.find({ isValidated: true }).select('_id');
-      query.store_id = { $in: boutiquesValidees.map(b => b._id) };
+      console.log('Boutiques validées trouvées:', boutiquesValidees.length);
+      console.log('IDs des boutiques validées:', boutiquesValidees.map(b => b._id));
+
+      // Conversion explicite en string pour éviter les problèmes de comparaison
+      query.store_id = { $in: boutiquesValidees.map(b => b._id.toString()) };
     }
+    // Admin
+    else {
+      const boutique = await Boutique.find().select('_id');
+      query.store_id = { $in: boutique.map(b => b._id) };
+    }
+
+    console.log('Query utilisée:', JSON.stringify(query));
 
     const produits = await Produit.find(query)
       .populate('store_id', 'name description categoryId')
       .sort({ createdAt: -1 });
+
+    console.log('Produits trouvés:', produits.length);
 
     res.json({
       success: true,
@@ -107,6 +138,7 @@ exports.getProduits = async (req, res) => {
       data: produits
     });
   } catch (error) {
+    console.error('Erreur dans getProduits:', error);
     res.status(500).json({
       success: false,
       message: error.message

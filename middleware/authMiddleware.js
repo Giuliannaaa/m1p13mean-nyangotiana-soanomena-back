@@ -13,6 +13,8 @@ exports.protect = async (req, res, next) => {
     ) {
         // Set token from Bearer token in header
         token = req.headers.authorization.split(' ')[1];
+        console.log('Auth Header:', req.headers.authorization);
+        console.log('Extracted Token:', token);
     }
     // else if (req.cookies.token) {
     //   token = req.cookies.token;
@@ -20,7 +22,13 @@ exports.protect = async (req, res, next) => {
 
     // Make sure token exists
     if (!token) {
-        return res.status(401).json({ success: false, error: 'Not authorized to access this route' });
+        return res.status(401).json({ success: false, error: 'Not authorized: No token provided in header' });
+    }
+    if (token === 'null') {
+        return res.status(401).json({ success: false, error: 'Not authorized: Token is the string "null" - Check frontend storage' });
+    }
+    if (token === 'undefined') {
+        return res.status(401).json({ success: false, error: 'Not authorized: Token is the string "undefined" - Check frontend storage' });
     }
 
     try {
@@ -35,8 +43,10 @@ exports.protect = async (req, res, next) => {
             return res.status(401).json({ success: false, error: 'Not authorized to access this route (user not found)' });
         }
 
+        const role = decoded.role;
+
         // Si c'est un propriétaire de boutique, récupérer sa boutique
-        if (req.user.role === 'Boutique' || req.user.role === 'boutique') {
+        if (role === 'Boutique' || role === 'boutique') {
             try {
                 req.boutique = await Boutique.findOne({ ownerId: req.user._id });
             } catch (boutiqueError) {

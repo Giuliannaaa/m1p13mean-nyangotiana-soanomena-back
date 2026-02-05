@@ -1,4 +1,6 @@
 const Boutique = require('../models/Boutique');
+const jwt = require('jsonwebtoken');
+const config = require('../config/config');
 
 // --- Créer une boutique ---
 exports.createBoutique = async (req, res) => {
@@ -14,11 +16,29 @@ exports.createBoutique = async (req, res) => {
 // --- Récupérer toutes les boutiques ---
 exports.getBoutiques = async (req, res) => {
     try {
-        // Si showAll est présent dans la requête (pour l'admin), on montre tout
-        // Sinon, on ne montre que les boutiques validées
-        const filter = req.query.showAll === 'true' ? {} : { isValidated: true };
-        const boutiques = await Boutique.find(filter);
-        res.json(boutiques);
+        let token;
+        if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+            token = req.headers.authorization.split(' ')[1];
+        }
+
+        // Vérifier si le token existe
+        if (!token) {
+            return res.status(401).json({
+                success: false,
+                message: 'Token non fourni'
+            });
+        }
+
+        const decodedToken = jwt.verify(token, config.jwtSecret);
+        const role = decodedToken.role;
+
+        if (role === 'Admin') {
+            const boutiques = await Boutique.find();
+            res.json(boutiques);
+        } else if (role === 'Boutique') {
+            const boutique = await Boutique.findOne({ ownerId: decodedToken.id });
+            res.json(boutique);
+        }
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

@@ -106,4 +106,46 @@ UserSchema.methods.getResetPasswordToken = function () {
     return resetToken;
 };
 
+// Prendre le nombre des acheteurs actifs
+UserSchema.statics.countActiveBuyers = async function () {
+    const result = await this.aggregate([
+        {
+            $match: { role: 'Acheteur', isActive: true }
+        },
+        {
+            $count: 'total'
+        }
+    ]);
+
+    return result.length > 0 ? result[0].total : 0;
+};
+
+// Prendre le nombre d'utilisateurs ayant un role boutique qui ne sont pas validés(actifs)
+UserSchema.statics.countInactiveBoutiqueUsers = async function () {
+    const result = await this.aggregate([
+        {
+            $match: { role: 'Boutique', isActive: false }
+        },
+        {
+            $count: 'total'
+        }
+    ]);
+
+    return result.length > 0 ? result[0].total : 0;
+};
+
+// Prendre le nombre total des acheteurs
+UserSchema.statics.countTotalBuyers = async function () {
+    const result = await this.aggregate([
+        {
+            $match: { role: 'Acheteur' }
+        },
+        {
+            $count: 'total'
+        }
+    ]);
+
+    return result.length > 0 ? result[0].total : 0;
+};
+
 module.exports = mongoose.model('Users', UserSchema);

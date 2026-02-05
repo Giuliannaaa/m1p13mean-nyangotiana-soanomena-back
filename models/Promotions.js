@@ -49,6 +49,29 @@ const promo = await Promotion.findOne({
   fin: { $gte: now }
 });*/
 
- 
+// Prendre le nombre des promotions actives
+PromotionSchema.statics.countActivePromotions = async function () {
+  const result = await this.aggregate([
+    {
+      $match: { est_Active: true }
+    },
+    {
+      $count: 'total'
+    }
+  ]);
+
+  return result.length > 0 ? result[0].total : 0;
+};
+
+// Prendre le nombre total des promotions
+PromotionSchema.statics.countTotalPromotions = async function () {
+  const result = await this.aggregate([
+    {
+      $count: 'total'
+    }
+  ]);
+
+  return result.length > 0 ? result[0].total : 0;
+};
 
 module.exports = mongoose.model('Promotions', PromotionSchema);

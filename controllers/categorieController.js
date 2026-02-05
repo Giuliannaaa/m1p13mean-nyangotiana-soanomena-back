@@ -21,8 +21,32 @@ exports.createCategorie = async (req, res) => {
 // --- Récupérer toutes les catégories ---
 exports.getCategories = async (req, res) => {
   try {
-    const categories = await Categorie.find().sort({ createdAt: -1 });
-    res.json(categories);
+    let token;
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+      token = req.headers.authorization.split(' ')[1];
+    }
+
+    // Vérifier si le token existe
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Token non fourni'
+      });
+    }
+
+    const decodedToken = jwt.verify(token, config.jwtSecret);
+    const role = decodedToken.role;
+
+    if (role === 'Admin') {
+      const categories = await Categorie.find().sort({ createdAt: -1 });
+      res.json(categories);
+    } else if (role === 'Boutique') {
+      const boutique = await Boutique.findOne({ ownerId: decodedToken.id });
+      res.json(boutique);
+    } else if (role === 'Acheteur') {
+      const categories = await Categorie.find().sort({ createdAt: -1 });
+      res.json(categories);
+    }
   } catch (error) {
     res.status(500).json({
       message: "Erreur lors du chargement des catégories",
