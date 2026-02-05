@@ -19,7 +19,7 @@ const upload = multer({ storage: storage });
 // Routes protégées avec Multer
 router.post('/produits',
   protect,
-  authorize('Admin', 'Boutique'),
+  authorize('Admin'),
   upload.single('image_Url'), // ← Multer en premier
   produitController.createProduit
 );
