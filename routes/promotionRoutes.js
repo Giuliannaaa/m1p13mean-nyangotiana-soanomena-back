@@ -7,7 +7,10 @@ router.post('/promotions', promotionController.createPromotion);
 router.get('/promotions', promotionController.getPromotions);
 
 // TRÈS IMPORTANT : Cette route DOIT être AVANT /promotions/:id
+//router.get('/promotions/active/:prod_id', promotionController.getPromotionActiveByProduit);
+
 router.get('/promotions/active/:prod_id', promotionController.getPromotionActiveByProduit);
+router.get('/', promotionController.getPromotions);
 
 // Les routes avec :id doivent venir APRÈS les routes spécifiques
 router.get('/promotions/:id', promotionController.getPromotionById);
