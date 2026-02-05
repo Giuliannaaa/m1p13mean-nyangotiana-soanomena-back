@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const Boutique = require('../models/Boutique');
 
 exports.getUsersByRole = async (req, res) => {
     try {
@@ -15,6 +16,12 @@ exports.toggleUserValidation = async (req, res) => {
         if (!user) return res.status(404).json({ message: "Utilisateur non trouvé" });
 
         user.isActive = !user.isActive;
+
+        // Si le rôle est Boutique, on désactive aussi les boutiques qu'il détient
+        if (user.role === 'Boutique') {
+            await Boutique.updateMany({ ownerId: user._id }, { isValidated: user.isActive });
+        }
+
         await user.save();
 
         res.json({
