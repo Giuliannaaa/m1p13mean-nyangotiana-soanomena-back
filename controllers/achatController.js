@@ -3,6 +3,7 @@ const Promotion = require('../models/Promotions');
 const Produit = require('../models/Produits');
 const jwt = require('jsonwebtoken');
 const config = require('../config/config');
+const produitController = require('./produitController'); // ✅ Importer le contrôleur produit
 
 /**
  * Récupérer la promotion active pour un produit
@@ -104,10 +105,12 @@ exports.createAchat = async (req, res) => {
     await achat.save();
 
     console.log('Achat créé avec succès:', achat._id);
-
-    // ✅ Populer les données avant de renvoyer
+    
+    // ✅ Incrémenter le nombre d'achats du produit
+    await produitController.incrementPurchaseCount(prod_id);
+    
     await achat.populate('store_id', 'name description');
-
+    
     res.status(201).json({
       success: true,
       achat,
@@ -144,7 +147,7 @@ exports.getAchats = async (req, res) => {
     const achats = await Achat.find(query)
       .populate('items.prod_id', 'nom_prod prix_unitaire image_Url store_id')
       .populate('client_id', 'name email')
-      .populate('store_id', 'name description') // ✅ Ajouter ceci
+      .populate('store_id', 'name description')
       .sort({ createdAt: -1 });
 
     res.json({
@@ -163,10 +166,9 @@ exports.getAchats = async (req, res) => {
 exports.getAchatsByBoutique = async (req, res) => {
   try {
     const { store_id } = req.params;
-
+    
     console.log('Récupération des achats pour la boutique:', store_id);
-
-    // Filtrer les achats par store_id
+    
     const achats = await Achat.find({ store_id: store_id })
       .populate('items.prod_id', 'nom_prod prix_unitaire image_Url store_id')
       .populate('client_id', 'name email')
@@ -182,9 +184,9 @@ exports.getAchatsByBoutique = async (req, res) => {
     });
   } catch (err) {
     console.error('Erreur:', err);
-    res.status(500).json({
+    res.status(500).json({ 
       success: false,
-      message: err.message
+      message: err.message 
     });
   }
 };
@@ -216,10 +218,9 @@ exports.getAchatById = async (req, res) => {
  */
 exports.updateAchat = async (req, res) => {
   try {
-    // ✅ Populer aussi le store_id avec le nom de la boutique
     const achat = await Achat.findByIdAndUpdate(req.params.id, req.body, { new: true })
       .populate('store_id', 'name description');
-
+      
     res.json({
       success: true,
       data: achat
