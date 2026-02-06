@@ -46,7 +46,7 @@ exports.createAchat = async (req, res) => {
     console.log('Paramètres reçus:', { prod_id, quantity, frais_livraison, avec_livraison });
     
     // Récupérer le produit pour avoir le prix
-    const produit = await Produit.findById(prod_id);
+    const produit = await Produit.findById(prod_id).populate('store_id', 'name');
     if (!produit) {
       console.log('Produit non trouvé avec l\'ID:', prod_id);
       return res.status(404).json({ message: 'Produit non trouvé' });
@@ -65,10 +65,13 @@ exports.createAchat = async (req, res) => {
     const frais = frais_livraison || 0;
     const total_reel = total_achat - reduction + frais;
     
+    // ✅ Récupérer le store_id du produit pour l'achat
+    const store_id = produit.store_id?._id || null;
+    
     // Créer l'achat
     const achat = new Achat({
       client_id: req.userId || null, // si tu as l'auth
-      store_id: req.body.store_id || null,
+      store_id: store_id, // ✅ Ajouter le store_id depuis le produit
       total_achat,
       reduction,
       frais_livraison: frais,
@@ -87,6 +90,9 @@ exports.createAchat = async (req, res) => {
     await achat.save();
     
     console.log('Achat créé avec succès:', achat._id);
+    
+    // ✅ Populer les données avant de renvoyer
+    await achat.populate('store_id', 'name description');
     
     res.status(201).json({
       success: true,
@@ -108,31 +114,72 @@ exports.createAchat = async (req, res) => {
  */
 exports.getAchats = async (req, res) => {
   try {
+    // ✅ Populer aussi le store_id avec le nom de la boutique
     const achats = await Achat.find()
-      .populate('items.prod_id', 'nom_prod prix_unitaire image_Url')
+      .populate('items.prod_id', 'nom_prod prix_unitaire image_Url store_id')
       .populate('client_id', 'name email')
-      .populate('store_id', 'name')
+      .populate('store_id', 'name description') // ✅ Ajouter ceci
       .sort({ createdAt: -1 });
 
-    res.json(achats);
+    res.json({
+      success: true,
+      count: achats.length,
+      data: achats
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
+/**
+ * Récupérer les achats par boutique
+ */
+exports.getAchatsByBoutique = async (req, res) => {
+  try {
+    const { store_id } = req.params;
+    
+    console.log('Récupération des achats pour la boutique:', store_id);
+    
+    // ✅ Filtrer les achats par store_id
+    const achats = await Achat.find({ store_id: store_id })
+      .populate('items.prod_id', 'nom_prod prix_unitaire image_Url store_id')
+      .populate('client_id', 'name email')
+      .populate('store_id', 'name description')
+      .sort({ createdAt: -1 });
+
+    console.log('Achats trouvés:', achats.length);
+
+    res.json({
+      success: true,
+      count: achats.length,
+      data: achats
+    });
+  } catch (err) {
+    console.error('Erreur:', err);
+    res.status(500).json({ 
+      success: false,
+      message: err.message 
+    });
+  }
+};
 
 /**
  * Récupérer un achat par ID
  */
 exports.getAchatById = async (req, res) => {
   try {
+    // ✅ Populer aussi le store_id avec le nom de la boutique
     const achat = await Achat.findById(req.params.id)
-      .populate('items.prod_id', 'nom_prod prix_unitaire image_Url')
+      .populate('items.prod_id', 'nom_prod prix_unitaire image_Url store_id')
       .populate('client_id', 'name email')
-      .populate('store_id', 'name')
-      .populate('items.prod_id', 'nom_prod prix_unitaire');
+      .populate('store_id', 'name description'); // ✅ Ajouter ceci
+      
     if (!achat) return res.status(404).json({ message: 'Commande non trouvée' });
-    res.json(achat);
+    
+    res.json({
+      success: true,
+      data: achat
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -143,8 +190,14 @@ exports.getAchatById = async (req, res) => {
  */
 exports.updateAchat = async (req, res) => {
   try {
-    const achat = await Achat.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    res.json(achat);
+    // ✅ Populer aussi le store_id avec le nom de la boutique
+    const achat = await Achat.findByIdAndUpdate(req.params.id, req.body, { new: true })
+      .populate('store_id', 'name description');
+      
+    res.json({
+      success: true,
+      data: achat
+    });
   } catch (err) {
     res.status(400).json({ message: err.message });
   }
@@ -156,7 +209,10 @@ exports.updateAchat = async (req, res) => {
 exports.deleteAchat = async (req, res) => {
   try {
     await Achat.findByIdAndDelete(req.params.id);
-    res.json({ message: 'Commande supprimée' });
+    res.json({ 
+      success: true,
+      message: 'Commande supprimée' 
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
