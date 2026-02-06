@@ -65,6 +65,9 @@ app.use('/boutiques', require('./routes/boutiqueRoutes'));
 app.use('/achats', achatRoutes); //tsy atao route fa api
 //app.use('/api/achats', require('./routes/achats'));
 
+// Route Panier (Shopping Cart)
+app.use('/api/panier', require('./routes/panierRoutes'));
+
 // Route Admin Dashboard
 app.use('/admin-dashboard', require('./routes/adminDashboardRoutes'));
 
