@@ -26,9 +26,8 @@ router.post('/produits',
   produitController.createProduit
 );
 
-// GET tous les produits
+// GET tous les produits (pas de protection)
 router.get('/produits',
-  //protect,
   produitController.getProduits
 );
 
@@ -54,17 +53,18 @@ router.get('/produits/filter/promoted',
 
 // GET produit par ID (DOIT ETRE APRES les routes /filter/xxx)
 router.get('/produits/:id',
-  //protect,
   produitController.getProduitById
 );
 
+// UPDATE - Admin ET Boutique peuvent modifier
 router.put('/produits/:id',
   protect,
   authorize('Admin', 'Boutique'),
-  upload.single('image_Url'), // ← Multer pour la modification aussi
+  upload.single('image_Url'),
   produitController.updateProduit
 );
 
+// DELETE - Admin ET Boutique peuvent supprimer
 router.delete('/produits/:id',
   protect,
   authorize('Admin', 'Boutique'),

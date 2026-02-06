@@ -1,20 +1,26 @@
 const express = require('express');
 const router = express.Router();
 const achatController = require('../controllers/achatController');
+const { protect, authorize } = require('../middleware/authMiddleware');
 
-// --- Routes ---
+// --- Routes Achats ---
 
-router.post('/ajouter/:prod_id', achatController.createAchat);
-// CREATE achat
-router.post('/', achatController.createAchat);
+// Toutes les routes sont protégées
+router.use(protect);
 
-// GET tous les achats
+// Routes POST (créations) - doivent venir EN PREMIER
+router.post('/ajouter/:prod_id', authorize('Acheteur'), achatController.createAchat);
+router.post('/', authorize('Acheteur'), achatController.createAchat);
+
+// Routes GET spécifiques (avec noms de paramètres explicites) - AVANT les routes générales
+router.get('/boutique/:store_id', authorize('Boutique', 'Admin'), achatController.getAchatsByBoutique);
+
+// Routes GET générales
+// getAchats sera filtré par rôle dans le contrôleur
 router.get('/', achatController.getAchats);
 
-// GET achat par ID
+// Routes GET/DELETE par ID (les plus générales) - EN DERNIER
 router.get('/:id', achatController.getAchatById);
-
-// DELETE achat
-router.delete('/:id', achatController.deleteAchat);
+router.delete('/:id', authorize('Admin'), achatController.deleteAchat);
 
 module.exports = router;
