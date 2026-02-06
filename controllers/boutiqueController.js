@@ -32,15 +32,32 @@ exports.getBoutiques = async (req, res) => {
         const decodedToken = jwt.verify(token, config.jwtSecret);
         const role = decodedToken.role;
 
+        let boutiques = [];
+
         if (role === 'Admin') {
-            const boutiques = await Boutique.find();
-            res.json(boutiques);
+            // Admin voit toutes les boutiques
+            boutiques = await Boutique.find();
         } else if (role === 'Boutique') {
+            // Boutique voit sa propre boutique
             const boutique = await Boutique.findOne({ ownerId: decodedToken.id });
-            res.json(boutique);
+            // ✅ Mettre l'objet unique dans un tableau
+            boutiques = boutique ? [boutique] : [];
+        } else if (role === 'Acheteur') {
+            // Acheteur voit les boutiques validées
+            boutiques = await Boutique.find({ isValidated: true });
         }
+
+        // ✅ Toujours retourner un tableau
+        res.json({
+            success: true,
+            count: boutiques.length,
+            data: boutiques
+        });
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(500).json({ 
+            success: false,
+            message: error.message 
+        });
     }
 };
 
@@ -81,7 +98,6 @@ exports.deleteBoutique = async (req, res) => {
     }
 };
 
-
 // --- Activer ou désactiver une boutique ---
 exports.toggleBoutiqueStatus = async (req, res) => {
     try {
@@ -92,6 +108,7 @@ exports.toggleBoutiqueStatus = async (req, res) => {
         await boutique.save();
 
         res.json({
+            success: true,
             message: `Boutique ${boutique.isValidated ? 'activée' : 'désactivée'} avec succès`,
             isValidated: boutique.isValidated
         });
@@ -99,6 +116,7 @@ exports.toggleBoutiqueStatus = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+
 /**
  * Récupérer la boutique par propriétaire (ownerId)
  */

@@ -17,30 +17,34 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 // Routes protégées avec Multer
+
+// ✅ CREATE - Admin ET Boutique peuvent créer des produits
 router.post('/produits',
   protect,
-  authorize('Admin'),
-  upload.single('image_Url'), // ← Multer en premier
+  authorize('Admin', 'Boutique'),  // ✅ Ajouter 'Boutique'
+  upload.single('image_Url'),
   produitController.createProduit
 );
 
+// GET tous les produits (pas de protection)
 router.get('/produits',
-  //protect,
   produitController.getProduits
 );
 
+// GET produit par ID (pas de protection)
 router.get('/produits/:id',
-  //protect,
   produitController.getProduitById
 );
 
+// UPDATE - Admin ET Boutique peuvent modifier
 router.put('/produits/:id',
   protect,
   authorize('Admin', 'Boutique'),
-  upload.single('image_Url'), // ← Multer pour la modification aussi
+  upload.single('image_Url'),
   produitController.updateProduit
 );
 
+// DELETE - Admin ET Boutique peuvent supprimer
 router.delete('/produits/:id',
   protect,
   authorize('Admin', 'Boutique'),
