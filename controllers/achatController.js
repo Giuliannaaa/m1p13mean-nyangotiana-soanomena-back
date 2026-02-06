@@ -1,6 +1,7 @@
 const Achat = require('../models/Achat');
 const Promotion = require('../models/Promotions');
 const Produit = require('../models/Produits');
+const produitController = require('./produitController'); // ✅ Importer le contrôleur produit
 
 /**
  * Récupérer la promotion active pour un produit
@@ -39,7 +40,6 @@ const calculerReduction = (prix_unitaire, quantite, promotion) => {
  */
 exports.createAchat = async (req, res) => {
   try {
-    // ✅ Récupérer prod_id depuis les paramètres URL, pas le body
     const { prod_id } = req.params;
     const { quantity, frais_livraison, avec_livraison } = req.body;
     
@@ -65,10 +65,12 @@ exports.createAchat = async (req, res) => {
     const frais = frais_livraison || 0;
     const total_reel = total_achat - reduction + frais;
     
+    const store_id = produit.store_id?._id || null;
+    
     // Créer l'achat
     const achat = new Achat({
-      client_id: req.userId || null, // si tu as l'auth
-      store_id: req.body.store_id || null,
+      client_id: req.userId || null,
+      store_id: store_id,
       total_achat,
       reduction,
       frais_livraison: frais,
@@ -87,6 +89,11 @@ exports.createAchat = async (req, res) => {
     await achat.save();
     
     console.log('Achat créé avec succès:', achat._id);
+    
+    // ✅ Incrémenter le nombre d'achats du produit
+    await produitController.incrementPurchaseCount(prod_id);
+    
+    await achat.populate('store_id', 'name description');
     
     res.status(201).json({
       success: true,
@@ -111,7 +118,7 @@ exports.getAchats = async (req, res) => {
     const achats = await Achat.find()
       .populate('items.prod_id', 'nom_prod prix_unitaire image_Url')
       .populate('client_id', 'name email')
-      .populate('store_id', 'name')
+      .populate('store_id', 'name description')
       .sort({ createdAt: -1 });
 
     res.json(achats);
@@ -120,6 +127,36 @@ exports.getAchats = async (req, res) => {
   }
 };
 
+/**
+ * Récupérer les achats par boutique
+ */
+exports.getAchatsByBoutique = async (req, res) => {
+  try {
+    const { store_id } = req.params;
+    
+    console.log('Récupération des achats pour la boutique:', store_id);
+    
+    const achats = await Achat.find({ store_id: store_id })
+      .populate('items.prod_id', 'nom_prod prix_unitaire image_Url store_id')
+      .populate('client_id', 'name email')
+      .populate('store_id', 'name description')
+      .sort({ createdAt: -1 });
+
+    console.log('Achats trouvés:', achats.length);
+
+    res.json({
+      success: true,
+      count: achats.length,
+      data: achats
+    });
+  } catch (err) {
+    console.error('Erreur:', err);
+    res.status(500).json({ 
+      success: false,
+      message: err.message 
+    });
+  }
+};
 
 /**
  * Récupérer un achat par ID
@@ -143,8 +180,13 @@ exports.getAchatById = async (req, res) => {
  */
 exports.updateAchat = async (req, res) => {
   try {
-    const achat = await Achat.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    res.json(achat);
+    const achat = await Achat.findByIdAndUpdate(req.params.id, req.body, { new: true })
+      .populate('store_id', 'name description');
+      
+    res.json({
+      success: true,
+      data: achat
+    });
   } catch (err) {
     res.status(400).json({ message: err.message });
   }

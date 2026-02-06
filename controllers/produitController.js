@@ -52,11 +52,17 @@ exports.createProduit = async (req, res) => {
       store_id: store_id,
       nom_prod: req.body.nom_prod,
       descriptions: req.body.descriptions,
-      prix_unitaire: req.body.prix_unitaire, // Mongoose convertira automatiquement
+      prix_unitaire: req.body.prix_unitaire,
       stock_etat: req.body.stock_etat === 'true' || req.body.stock_etat === true,
       type_produit: req.body.type_produit,
       livraison: livraison,
-      image_Url: req.file ? req.file.path : '' // ← Fichier uploadé par multer
+      image_Url: req.file ? req.file.path : '',
+      // ✅ Initialiser les champs de filtrage
+      isNew: true,
+      isBestSeller: false,
+      isPromoted: false,
+      purchaseCount: 0,
+      views: 0
     });
 
     await produit.save();
@@ -115,7 +121,6 @@ exports.getProduits = async (req, res) => {
       console.log('Boutiques validées trouvées:', boutiquesValidees.length);
       console.log('IDs des boutiques validées:', boutiquesValidees.map(b => b._id));
 
-      // Conversion explicite en string pour éviter les problèmes de comparaison
       query.store_id = { $in: boutiquesValidees.map(b => b._id.toString()) };
     }
     // Admin
@@ -160,6 +165,10 @@ exports.getProduitById = async (req, res) => {
         message: 'Produit non trouvé'
       });
     }
+    
+    // ✅ Incrémenter le nombre de vues
+    produit.views = (produit.views || 0) + 1;
+    await produit.save();
 
     res.json({
       success: true,
@@ -265,5 +274,120 @@ exports.deleteProduit = async (req, res) => {
       success: false,
       message: error.message
     });
+  }
+};
+
+/**
+ * Obtenir les produits "Nouveau"
+ */
+exports.getNewProduits = async (req, res) => {
+  try {
+    const produits = await Produit.find({ isNew: true })
+      .populate('store_id', 'name description')
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      count: produits.length,
+      data: produits
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+/**
+ * Obtenir les produits "Populaire"
+ */
+exports.getPopularProduits = async (req, res) => {
+  try {
+    const produits = await Produit.find({
+      $or: [
+        { purchaseCount: { $gt: 0 } },
+        { views: { $gt: 50 } }
+      ]
+    })
+      .populate('store_id', 'name description')
+      .sort({ purchaseCount: -1, views: -1 });
+
+    res.json({
+      success: true,
+      count: produits.length,
+      data: produits
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+/**
+ * Obtenir les produits "Best-seller"
+ */
+exports.getBestSellerProduits = async (req, res) => {
+  try {
+    const produits = await Produit.find({ isBestSeller: true })
+      .populate('store_id', 'name description')
+      .sort({ purchaseCount: -1 });
+
+    res.json({
+      success: true,
+      count: produits.length,
+      data: produits
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+/**
+ * Obtenir les produits en "Promotion"
+ */
+exports.getPromotedProduits = async (req, res) => {
+  try {
+    const produits = await Produit.find({ isPromoted: true })
+      .populate('store_id', 'name description')
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      count: produits.length,
+      data: produits
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+/**
+ * Incrémenter le nombre d'achats d'un produit
+ * (À appeler quand un achat est créé)
+ */
+exports.incrementPurchaseCount = async (produitId) => {
+  try {
+    const produit = await Produit.findById(produitId);
+    if (produit) {
+      produit.purchaseCount = (produit.purchaseCount || 0) + 1;
+      
+      // Si plus de 10 achats, marquer comme best-seller
+      if (produit.purchaseCount > 10) {
+        produit.isBestSeller = true;
+      }
+      
+      await produit.save();
+    }
+  } catch (error) {
+    console.error('Erreur incrementPurchaseCount:', error);
   }
 };
