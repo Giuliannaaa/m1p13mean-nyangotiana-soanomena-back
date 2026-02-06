@@ -124,12 +124,24 @@ exports.createAchat = async (req, res) => {
 };
 
 /**
- * Récupérer tous les achats
+ * Récupérer tous les achats (filtrés par rôle)
  */
 exports.getAchats = async (req, res) => {
   try {
-    // ✅ Populer aussi le store_id avec le nom de la boutique
-    const achats = await Achat.find()
+    let query = {};
+
+    // Filtrage selon le rôle
+    if (req.user.role === 'Acheteur') {
+      query.client_id = req.user.id;
+    } else if (req.user.role === 'Boutique') {
+      // Supposons que le middleware a attaché req.boutique ou qu'on doit le trouver
+      // Mais pour l'instant, l'acheteur est la priorité.
+      // Si Boutique veut voir ses ventes, elle utilise getAchatsByBoutique ou on filtre ici si on avait l'ID.
+      // Pour l'instant, laissons vide ou ajoutons logique si besoin.
+    }
+
+    // Populer aussi le store_id avec le nom de la boutique
+    const achats = await Achat.find(query)
       .populate('items.prod_id', 'nom_prod prix_unitaire image_Url store_id')
       .populate('client_id', 'name email')
       .populate('store_id', 'name description') // ✅ Ajouter ceci
@@ -154,7 +166,7 @@ exports.getAchatsByBoutique = async (req, res) => {
 
     console.log('Récupération des achats pour la boutique:', store_id);
 
-    // ✅ Filtrer les achats par store_id
+    // Filtrer les achats par store_id
     const achats = await Achat.find({ store_id: store_id })
       .populate('items.prod_id', 'nom_prod prix_unitaire image_Url store_id')
       .populate('client_id', 'name email')
