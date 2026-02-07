@@ -16,12 +16,12 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
-// Routes protégées avec Multer
+// ========== Routes Principales ==========
 
-// ✅ CREATE - Admin ET Boutique peuvent créer des produits
+// CREATE - Admin ET Boutique peuvent créer des produits
 router.post('/produits',
   protect,
-  authorize('Admin', 'Boutique'),  // ✅ Ajouter 'Boutique'
+  authorize('Admin', 'Boutique'),
   upload.single('image_Url'),
   produitController.createProduit
 );
@@ -31,7 +31,27 @@ router.get('/produits',
   produitController.getProduits
 );
 
-// GET produit par ID (pas de protection)
+// GET Nouveaux produits
+router.get('/produits/filter/new',
+  produitController.getNewProduits
+);
+
+// GET Produits populaires
+router.get('/produits/filter/popular',
+  produitController.getPopularProduits
+);
+
+// GET Produits best-seller
+router.get('/produits/filter/bestseller',
+  produitController.getBestSellerProduits
+);
+
+// GET Produits en promotion
+router.get('/produits/filter/promoted',
+  produitController.getPromotedProduits
+);
+
+// GET produit par ID (DOIT ETRE APRES les routes /filter/xxx)
 router.get('/produits/:id',
   produitController.getProduitById
 );
