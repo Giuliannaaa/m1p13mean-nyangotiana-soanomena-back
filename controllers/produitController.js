@@ -1,8 +1,35 @@
 const mongoose = require('mongoose');
 const Produit = require('../models/Produits');
 const Boutique = require('../models/Boutique');
+const Promotion = require('../models/Promotions'); // ✅ Importer Promotion
 const jwt = require('jsonwebtoken');
 const config = require('../config/config');
+
+/**
+ * FONCTION UTILITAIRE : Mettre à jour isPromoted basé sur les promotions actives
+ */
+const updatePromotionStatus = async (produitId) => {
+  try {
+    const now = new Date();
+    
+    // Chercher une promotion active pour ce produit
+    const activePromotion = await Promotion.findOne({
+      prod_id: produitId,
+      est_Active: true,
+      debut: { $lte: now },
+      fin: { $gte: now }
+    });
+    
+    // Mettre à jour isPromoted basé sur la présence d'une promotion active
+    await Produit.findByIdAndUpdate(
+      produitId,
+      { isPromoted: !!activePromotion }, // true si promotion active, false sinon
+      //{ new: true }
+    );
+  } catch (error) {
+    console.error('Erreur updatePromotionStatus:', error);
+  }
+};
 
 /**
  * Créer un produit (associé à la boutique de l'utilisateur connecté)
@@ -57,7 +84,7 @@ exports.createProduit = async (req, res) => {
       type_produit: req.body.type_produit,
       livraison: livraison,
       image_Url: req.file ? req.file.path : '',
-      // ✅ Initialiser les champs de filtrage
+      // Initialiser les champs de filtrage
       isNew: true,
       isBestSeller: false,
       isPromoted: false,
@@ -137,10 +164,20 @@ exports.getProduits = async (req, res) => {
 
     console.log('Produits trouvés:', produits.length);
 
+    // Mettre à jour isPromoted pour chaque produit basé sur les promotions actives
+    for (const produit of produits) {
+      await updatePromotionStatus(produit._id);
+    }
+
+    // Récupérer les produits à nouveau avec les flags à jour
+    const produitsUpdated = await Produit.find(query)
+      .populate('store_id', 'name description categoryId')
+      .sort({ createdAt: -1 });
+
     res.json({
       success: true,
-      count: produits.length,
-      data: produits
+      count: produitsUpdated.length,
+      data: produitsUpdated
     });
   } catch (error) {
     console.error('Erreur dans getProduits:', error);
@@ -166,9 +203,12 @@ exports.getProduitById = async (req, res) => {
       });
     }
     
-    // ✅ Incrémenter le nombre de vues
+    // Incrémenter le nombre de vues
     produit.views = (produit.views || 0) + 1;
     await produit.save();
+
+    // Mettre à jour isPromoted basé sur les promotions actives
+    await updatePromotionStatus(req.params.id);
 
     res.json({
       success: true,
@@ -278,13 +318,20 @@ exports.deleteProduit = async (req, res) => {
 };
 
 /**
- * Obtenir les produits "Nouveau"
+ * Obtenir les produits "Nouveau" (créés il y a moins de 30 jours)
  */
 exports.getNewProduits = async (req, res) => {
   try {
-    const produits = await Produit.find({ isNew: true })
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    
+    // Chercher les produits créés APRÈS thirtyDaysAgo
+    const produits = await Produit.find({
+      createdAt: { $gte: thirtyDaysAgo }  // créé après 30 jours
+    })
       .populate('store_id', 'name description')
       .sort({ createdAt: -1 });
+
+    console.log('Produits nouveaux trouvés:', produits.length);
 
     res.json({
       success: true,
@@ -292,6 +339,7 @@ exports.getNewProduits = async (req, res) => {
       data: produits
     });
   } catch (error) {
+    console.error('Erreur getNewProduits:', error);
     res.status(500).json({
       success: false,
       message: error.message
@@ -300,7 +348,7 @@ exports.getNewProduits = async (req, res) => {
 };
 
 /**
- * Obtenir les produits "Populaire"
+ * Obtenir les produits "Populaire" (qu'ils soient en promotion ou non)
  */
 exports.getPopularProduits = async (req, res) => {
   try {
@@ -327,7 +375,7 @@ exports.getPopularProduits = async (req, res) => {
 };
 
 /**
- * Obtenir les produits "Best-seller"
+ * Obtenir les produits "Best-seller" (qu'ils soient en promotion ou non)
  */
 exports.getBestSellerProduits = async (req, res) => {
   try {
@@ -349,13 +397,31 @@ exports.getBestSellerProduits = async (req, res) => {
 };
 
 /**
- * Obtenir les produits en "Promotion"
+ * Obtenir les produits en "Promotion" (avec vérification des dates)
  */
 exports.getPromotedProduits = async (req, res) => {
   try {
-    const produits = await Produit.find({ isPromoted: true })
+    const now = new Date();
+    
+    // Chercher les promotions actives et valides (entre debut et fin)
+    const activePromotions = await Promotion.find({
+      est_Active: true,
+      debut: { $lte: now },
+      fin: { $gte: now }
+    }).select('prod_id');
+    
+    const productIds = activePromotions.map(p => p.prod_id);
+    
+    // Récupérer les produits avec ces IDs
+    const produits = await Produit.find({ _id: { $in: productIds } })
       .populate('store_id', 'name description')
       .sort({ createdAt: -1 });
+
+    // ✅ Marquer isPromoted = true pour ces produits
+    await Produit.updateMany(
+      { _id: { $in: productIds } },
+      { isPromoted: true }
+    );
 
     res.json({
       success: true,
@@ -372,7 +438,6 @@ exports.getPromotedProduits = async (req, res) => {
 
 /**
  * Incrémenter le nombre d'achats d'un produit
- * (À appeler quand un achat est créé)
  */
 exports.incrementPurchaseCount = async (produitId) => {
   try {
