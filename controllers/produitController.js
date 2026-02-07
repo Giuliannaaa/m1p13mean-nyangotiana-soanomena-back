@@ -1,9 +1,12 @@
 const mongoose = require('mongoose');
 const Produit = require('../models/Produits');
 const Boutique = require('../models/Boutique');
-const Promotion = require('../models/Promotions'); // ✅ Importer Promotion
+const Promotion = require('../models/Promotions');
 const jwt = require('jsonwebtoken');
 const config = require('../config/config');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs').promises;
 
 /**
  * FONCTION UTILITAIRE : Mettre à jour isPromoted basé sur les promotions actives
@@ -11,7 +14,7 @@ const config = require('../config/config');
 const updatePromotionStatus = async (produitId) => {
   try {
     const now = new Date();
-    
+
     // Chercher une promotion active pour ce produit
     const activePromotion = await Promotion.findOne({
       prod_id: produitId,
@@ -19,7 +22,7 @@ const updatePromotionStatus = async (produitId) => {
       debut: { $lte: now },
       fin: { $gte: now }
     });
-    
+
     // Mettre à jour isPromoted basé sur la présence d'une promotion active
     await Produit.findByIdAndUpdate(
       produitId,
@@ -38,7 +41,7 @@ exports.createProduit = async (req, res) => {
   try {
     let store_id;
 
-    // Si l'utilisateur est un propriétaire de boutique
+    // Si l'utilisateur est un propriétaire de boutique 
     if (req.user.role === 'Boutique') {
       if (!req.boutique) {
         return res.status(403).json({
@@ -83,7 +86,7 @@ exports.createProduit = async (req, res) => {
       stock_etat: req.body.stock_etat === 'true' || req.body.stock_etat === true,
       type_produit: req.body.type_produit,
       livraison: livraison,
-      image_Url: req.file ? req.file.path : '',
+      image_Url: '',
       // Initialiser les champs de filtrage
       isNew: true,
       isBestSeller: false,
@@ -92,6 +95,20 @@ exports.createProduit = async (req, res) => {
       views: 0
     });
 
+
+    if (req.files.image_Url) {
+      const file = req.files.image_Url;
+
+      const uploadDir = path.join('uploads/product', produit._id.toString());
+      await fs.mkdir(uploadDir, { recursive: true });
+
+      const filename = `${file.name}`;
+      const filePath = path.join(uploadDir, filename);
+
+      await file.mv(filePath);
+
+      produit.image_Url = filePath;
+    }
     await produit.save();
 
     // Peupler les infos de la boutique
@@ -202,7 +219,7 @@ exports.getProduitById = async (req, res) => {
         message: 'Produit non trouvé'
       });
     }
-    
+
     // Incrémenter le nombre de vues
     produit.views = (produit.views || 0) + 1;
     await produit.save();
@@ -323,7 +340,7 @@ exports.deleteProduit = async (req, res) => {
 exports.getNewProduits = async (req, res) => {
   try {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    
+
     // Chercher les produits créés APRÈS thirtyDaysAgo
     const produits = await Produit.find({
       createdAt: { $gte: thirtyDaysAgo }  // créé après 30 jours
@@ -402,16 +419,16 @@ exports.getBestSellerProduits = async (req, res) => {
 exports.getPromotedProduits = async (req, res) => {
   try {
     const now = new Date();
-    
+
     // Chercher les promotions actives et valides (entre debut et fin)
     const activePromotions = await Promotion.find({
       est_Active: true,
       debut: { $lte: now },
       fin: { $gte: now }
     }).select('prod_id');
-    
+
     const productIds = activePromotions.map(p => p.prod_id);
-    
+
     // Récupérer les produits avec ces IDs
     const produits = await Produit.find({ _id: { $in: productIds } })
       .populate('store_id', 'name description')
@@ -444,12 +461,12 @@ exports.incrementPurchaseCount = async (produitId) => {
     const produit = await Produit.findById(produitId);
     if (produit) {
       produit.purchaseCount = (produit.purchaseCount || 0) + 1;
-      
+
       // Si plus de 10 achats, marquer comme best-seller
       if (produit.purchaseCount > 10) {
         produit.isBestSeller = true;
       }
-      
+
       await produit.save();
     }
   } catch (error) {
