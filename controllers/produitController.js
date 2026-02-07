@@ -1,4 +1,3 @@
-const mongoose = require('mongoose');
 const Produit = require('../models/Produits');
 const Boutique = require('../models/Boutique');
 const Promotion = require('../models/Promotions');
@@ -274,8 +273,27 @@ exports.updateProduit = async (req, res) => {
     }
 
     // Si un nouveau fichier est uploadé
-    if (req.file) {
-      req.body.image_Url = req.file.path;
+    if (req.files && req.files.image_Url) {
+      const file = req.files.image_Url;
+
+      const uploadDir = path.join('uploads/product', req.params.id);
+      await fs.mkdir(uploadDir, { recursive: true });
+
+      const filename = `${file.name}`;
+      const filePath = path.join(uploadDir, filename);
+
+      // Optionnel : Supprimer l'ancienne image si elle existe
+      if (produit.image_Url && produit.image_Url !== filePath) {
+        try {
+          await fs.unlink(produit.image_Url);
+        } catch (err) {
+          console.error('Erreur suppression ancienne image:', err);
+        }
+      }
+
+      await file.mv(filePath);
+
+      req.body.image_Url = filePath;
     }
 
     produit = await Produit.findByIdAndUpdate(
@@ -321,6 +339,14 @@ exports.deleteProduit = async (req, res) => {
     }
 
     await Produit.findByIdAndDelete(req.params.id);
+
+    // Supprimer le dossier des images du produit
+    const uploadDir = path.join('uploads/product', req.params.id);
+    try {
+      await fs.rm(uploadDir, { recursive: true, force: true });
+    } catch (err) {
+      console.error('Erreur suppression dossier produit:', err);
+    }
 
     res.json({
       success: true,
