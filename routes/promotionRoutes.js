@@ -6,6 +6,9 @@ const promotionController = require('../controllers/promotionController');
 router.post('/promotions', promotionController.createPromotion);
 router.get('/promotions', promotionController.getPromotions);
 
+// Filtre promotion
+router.get('/filter/promoted', promotionController.getPromotedProduits);
+
 // TRÈS IMPORTANT : Cette route DOIT être AVANT /promotions/:id
 //router.get('/promotions/active/:prod_id', promotionController.getPromotionActiveByProduit);
 

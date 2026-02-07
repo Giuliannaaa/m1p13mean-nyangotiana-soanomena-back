@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Promotion = require('../models/Promotions');
+const Produit = require('../models/Produits'); 
 
 /**
  * Ajouter une promotion
@@ -17,7 +18,22 @@ exports.createPromotion = async (req, res) => {
     });
 
     await promotion.save();
-    res.status(201).json(promotion);
+    
+    // Mettre à jour le produit pour marquer isPromoted = true
+    if (req.body.prod_id) {
+      await Produit.findByIdAndUpdate(
+        req.body.prod_id,
+        { isPromoted: true },
+        { new: true }
+      );
+      console.log('Produit marqué comme en promotion');
+    }
+    
+    res.status(201).json({
+      success: true,
+      message: 'Promotion créée avec succès',
+      data: promotion
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -95,10 +111,59 @@ exports.updatePromotion = async (req, res) => {
  */
 exports.deletePromotion = async (req, res) => {
   try {
+    const promotion = await Promotion.findById(req.params.id);
+    
+    if (!promotion) {
+      return res.status(404).json({ message: 'Promotion non trouvée' });
+    }
+    
+    // Avant de supprimer, vérifier s'il y a d'autres promotions actives pour ce produit
+    const otherPromotions = await Promotion.countDocuments({
+      prod_id: promotion.prod_id,
+      _id: { $ne: req.params.id },
+      est_Active: true
+    });
+    
+    // Si c'est la dernière promotion active, marquer isPromoted = false
+    if (otherPromotions === 0) {
+      await Produit.findByIdAndUpdate(
+        promotion.prod_id,
+        { isPromoted: false },
+        { new: true }
+      );
+      console.log('Produit marqué comme non en promotion');
+    }
+    
     await Promotion.findByIdAndDelete(req.params.id);
-    res.json({ message: 'Promotion supprimée' });
+    
+    res.json({ 
+      success: true,
+      message: 'Promotion supprimée' 
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+/**
+ * Obtenir les produits en promotion
+ */
+exports.getPromotedProduits = async (req, res) => {
+  try {
+    const produits = await Produit.find({ isPromoted: true })
+      .populate('store_id', 'name description')
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      count: produits.length,
+      data: produits
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
 };
 
@@ -114,16 +179,42 @@ exports.togglePromotionStatus = async (req, res) => {
 
     promotion.est_Active = !promotion.est_Active;
     await promotion.save();
+    
+    // Mettre à jour le produit en fonction du statut
+    if (promotion.est_Active) {
+      await Produit.findByIdAndUpdate(
+        promotion.prod_id,
+        { isPromoted: true },
+        { new: true }
+      );
+    } else {
+      // Vérifier s'il y a d'autres promotions actives
+      const otherActivePromotions = await Promotion.countDocuments({
+        prod_id: promotion.prod_id,
+        _id: { $ne: req.params.id },
+        est_Active: true
+      });
+      
+      if (otherActivePromotions === 0) {
+        await Produit.findByIdAndUpdate(
+          promotion.prod_id,
+          { isPromoted: false },
+          { new: true }
+        );
+      }
+    }
 
-    res.json(promotion);
+    res.json({
+      success: true,
+      data: promotion
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
-}; // ← Ferme bien togglePromotionStatus ici
+};
 
 /**
  * Afficher toutes les promotions avec les noms des produits
- * Sans populate, prod_id = juste un ID, avec populate, tu as prod_id.nom_prod
  */
 exports.getAllPromotions = async (req, res) => {
   try {
@@ -140,26 +231,6 @@ exports.getAllPromotions = async (req, res) => {
 /**
  * Récupérer la promotion active pour un produit
  */
-/*exports.getPromotionActiveByProduit = async (req, res) => {
-  try {
-    const now = new Date();
-    
-    const promotion = await Promotion.findOne({
-      prod_id: req.params.prod_id,
-      est_Active: true,
-      debut: { $lte: now },
-      fin: { $gte: now }
-    });
-    
-    if (!promotion) {
-      return res.status(404).json({ message: 'Aucune promotion active' });
-    }
-    
-    res.json(promotion);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};*/
 exports.getPromotionActiveByProduit = async (req, res) => {
   try {
     const { prod_id } = req.params;
