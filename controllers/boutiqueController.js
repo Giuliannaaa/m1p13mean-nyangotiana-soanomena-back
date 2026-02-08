@@ -9,7 +9,7 @@ exports.createBoutique = async (req, res) => {
     try {
         const boutique = new Boutique({
             ...req.body,
-            // ✅ Initialiser les champs de filtrage
+            // Initialiser les champs de filtrage
             isNew: true,
             isPopular: false,
             isFeatured: false,
@@ -116,7 +116,7 @@ exports.updateBoutique = async (req, res) => {
         // Gérer les nouvelles images si présentes
         if (req.files && req.files.images) {
             const files = Array.isArray(req.files.images) ? req.files.images : [req.files.images];
-            const uploadDir = path.join('uploads/boutique', boutique._id.toString());
+            const uploadDir = path.join('uploads/stores', boutique._id.toString());
             await fs.mkdir(uploadDir, { recursive: true });
 
             for (const file of files) {
@@ -154,7 +154,7 @@ exports.deleteBoutique = async (req, res) => {
         if (!boutique) return res.status(404).json({ success: false, message: "Boutique non trouvée" });
 
         // Supprimer le dossier des images
-        const uploadDir = path.join('uploads/boutique', req.params.id);
+        const uploadDir = path.join('uploads/stores', req.params.id);
         try {
             await fs.rm(uploadDir, { recursive: true, force: true });
         } catch (err) {
