@@ -1,6 +1,8 @@
 const Boutique = require('../models/Boutique');
 const jwt = require('jsonwebtoken');
 const config = require('../config/config');
+const path = require('path');
+const fs = require('fs').promises;
 
 // --- Créer une boutique ---
 exports.createBoutique = async (req, res) => {
@@ -13,12 +15,36 @@ exports.createBoutique = async (req, res) => {
             isFeatured: false,
             productCount: 0,
             rating: 0,
-            followers: 0
+            followers: 0,
+            images: []
         });
+
         await boutique.save();
-        res.status(201).json(boutique);
+
+        // Gérer les images si présentes
+        if (req.files && req.files.images) {
+            const files = Array.isArray(req.files.images) ? req.files.images : [req.files.images];
+            const uploadDir = path.join('uploads/stores', boutique._id.toString());
+            await fs.mkdir(uploadDir, { recursive: true });
+
+            for (const file of files) {
+                const filePath = path.join(uploadDir, file.name);
+                await file.mv(filePath);
+                boutique.images.push({
+                    url: filePath,
+                    altText: file.name,
+                    isCover: boutique.images.length === 0 // La première image est la couverture par défaut
+                });
+            }
+            await boutique.save();
+        }
+
+        res.status(201).json({
+            success: true,
+            data: boutique
+        });
     } catch (error) {
-        res.status(400).json({ message: error.message });
+        res.status(400).json({ success: false, message: error.message });
     }
 };
 
@@ -63,9 +89,9 @@ exports.getBoutiques = async (req, res) => {
             data: boutiques
         });
     } catch (error) {
-        res.status(500).json({ 
+        res.status(500).json({
             success: false,
-            message: error.message 
+            message: error.message
         });
     }
 };
@@ -84,26 +110,61 @@ exports.getBoutiqueById = async (req, res) => {
 // --- Mettre à jour une boutique ---
 exports.updateBoutique = async (req, res) => {
     try {
-        const boutique = await Boutique.findByIdAndUpdate(
-            req.params.id,
-            req.body,
-            { new: true }
-        );
-        if (!boutique) return res.status(404).json({ message: "Boutique non trouvée" });
-        res.json(boutique);
+        let boutique = await Boutique.findById(req.params.id);
+        if (!boutique) return res.status(404).json({ success: false, message: "Boutique non trouvée" });
+
+        // Gérer les nouvelles images si présentes
+        if (req.files && req.files.images) {
+            const files = Array.isArray(req.files.images) ? req.files.images : [req.files.images];
+            const uploadDir = path.join('uploads/boutique', boutique._id.toString());
+            await fs.mkdir(uploadDir, { recursive: true });
+
+            for (const file of files) {
+                const filePath = path.join(uploadDir, file.name);
+                await file.mv(filePath);
+                boutique.images.push({
+                    url: filePath,
+                    altText: file.name
+                });
+            }
+        }
+
+        // Mettre à jour les autres champs
+        Object.keys(req.body).forEach(key => {
+            if (key !== 'images') {
+                boutique[key] = req.body[key];
+            }
+        });
+
+        await boutique.save();
+
+        res.json({
+            success: true,
+            data: boutique
+        });
     } catch (error) {
-        res.status(400).json({ message: error.message });
+        res.status(400).json({ success: false, message: error.message });
     }
 };
 
 // --- Supprimer une boutique ---
 exports.deleteBoutique = async (req, res) => {
     try {
-        const boutique = await Boutique.findByIdAndDelete(req.params.id);
-        if (!boutique) return res.status(404).json({ message: "Boutique non trouvée" });
-        res.json({ message: "Boutique supprimée avec succès" });
+        const boutique = await Boutique.findById(req.params.id);
+        if (!boutique) return res.status(404).json({ success: false, message: "Boutique non trouvée" });
+
+        // Supprimer le dossier des images
+        const uploadDir = path.join('uploads/boutique', req.params.id);
+        try {
+            await fs.rm(uploadDir, { recursive: true, force: true });
+        } catch (err) {
+            console.error('Erreur suppression dossier boutique:', err);
+        }
+
+        await Boutique.findByIdAndDelete(req.params.id);
+        res.json({ success: true, message: "Boutique supprimée avec succès" });
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
@@ -160,7 +221,7 @@ exports.getBoutiqueByOwner = async (req, res) => {
 exports.getNewBoutiques = async (req, res) => {
     try {
         const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-        
+
         const boutiques = await Boutique.find({
             isValidated: true,
             createdAt: { $gte: thirtyDaysAgo }
@@ -260,12 +321,12 @@ exports.incrementProductCount = async (boutiqueId) => {
         const boutique = await Boutique.findById(boutiqueId);
         if (boutique) {
             boutique.productCount = (boutique.productCount || 0) + 1;
-            
+
             // Si plus de 50 produits, marquer comme populaire
             if (boutique.productCount > 50) {
                 boutique.isPopular = true;
             }
-            
+
             await boutique.save();
         }
     } catch (error) {
@@ -304,10 +365,10 @@ exports.addFollower = async (req, res) => {
 exports.rateBoutique = async (req, res) => {
     try {
         const { rating } = req.body;
-        
+
         if (!rating || rating < 0 || rating > 5) {
-            return res.status(400).json({ 
-                message: "La note doit être entre 0 et 5" 
+            return res.status(400).json({
+                message: "La note doit être entre 0 et 5"
             });
         }
 
@@ -325,9 +386,42 @@ exports.rateBoutique = async (req, res) => {
             data: boutique
         });
     } catch (error) {
-        res.status(500).json({
-            success: false,
-            message: error.message
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+/**
+ * Supprimer une image spécifique d'une boutique
+ */
+exports.deleteBoutiqueImage = async (req, res) => {
+    try {
+        const { id, imageId } = req.params;
+        const boutique = await Boutique.findById(id);
+
+        if (!boutique) return res.status(404).json({ success: false, message: "Boutique non trouvée" });
+
+        const imageIndex = boutique.images.findIndex(img => img._id.toString() === imageId);
+        if (imageIndex === -1) return res.status(404).json({ success: false, message: "Image non trouvée" });
+
+        const image = boutique.images[imageIndex];
+
+        // Supprimer le fichier physiquement si possible
+        try {
+            await fs.unlink(image.url);
+        } catch (err) {
+            console.error('Erreur suppression fichier image:', err);
+        }
+
+        // Retirer de la base de données
+        boutique.images.splice(imageIndex, 1);
+        await boutique.save();
+
+        res.json({
+            success: true,
+            message: "Image supprimée avec succès",
+            data: boutique
         });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
     }
 };
