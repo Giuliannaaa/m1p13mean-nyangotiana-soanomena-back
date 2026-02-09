@@ -1,12 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const { 
-  createBoutique, 
-  getBoutiques, 
-  getBoutiqueById, 
-  getBoutiqueByOwner, 
-  updateBoutique, 
-  deleteBoutique, 
+const {
+  createBoutique,
+  getBoutiques,
+  getBoutiqueById,
+  getBoutiqueByOwner,
+  updateBoutique,
+  deleteBoutique,
   toggleBoutiqueStatus,
   // ✅ Ajouter les nouvelles méthodes
   getNewBoutiques,
@@ -14,7 +14,8 @@ const {
   getFeaturedBoutiques,
   getTopRatedBoutiques,
   addFollower,
-  rateBoutique
+  rateBoutique,
+  deleteBoutiqueImage
 } = require('../controllers/boutiqueController');
 
 // --- Créer une boutique ---
@@ -51,5 +52,8 @@ router.post('/:id/follow', addFollower);
 
 // --- Noter une boutique ---
 router.post('/:id/rate', rateBoutique);
+
+// --- Supprimer une image spécifique de la galerie ---
+router.delete('/:id/images/:imageId', deleteBoutiqueImage);
 
 module.exports = router;
