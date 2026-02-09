@@ -7,6 +7,7 @@ const authRoutes = require("./routes/authRoutes");
 const produitRoutes = require("./routes/produitRoutes");
 const promotionRoutes = require('./routes/promotionRoutes');
 const achatRoutes = require('./routes/achatRoutes');
+const fileUpload = require('express-fileupload');
 
 // Load env vars
 dotenv.config();
@@ -15,7 +16,16 @@ const app = express();
 
 // Body parser
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static('uploads')); // Make uploads folder static
+
+app.use(fileUpload({
+    createParentPath: true,
+    limits: {
+        fileSize: 50 * 1024 * 1024 // 50MB max
+    },
+    parseNested: true  // Important pour parser les données imbriquées
+}));
 
 // Enable CORS
 app.use(cors({ origin: 'http://localhost:4200' }));
@@ -43,7 +53,6 @@ const startServer = async () => {
         process.exit(1);
     }
 };
-
 
 // Mount routers
 app.use("/api/auth", authRoutes);
