@@ -17,7 +17,7 @@ const boutiqueSchema = new mongoose.Schema(
             {
                 url: { type: String, required: true },
                 altText: String,
-                isCover: { type: Boolean, default: false },
+                isLogo: { type: Boolean, default: false },
                 position: Number,
                 uploadedAt: { type: Date, default: Date.now }
             }

@@ -57,16 +57,13 @@ exports.createAchat = async (req, res) => {
 
     const decodedToken = jwt.verify(token, config.jwtSecret);
 
-    // ✅ Récupérer prod_id depuis les paramètres URL, pas le body
+    // Récupérer prod_id depuis les paramètres URL, pas le body
     const { prod_id } = req.params;
     const { quantity, frais_livraison, avec_livraison } = req.body;
-
-    console.log('Paramètres reçus:', { prod_id, quantity, frais_livraison, avec_livraison });
 
     // Récupérer le produit pour avoir le prix
     const produit = await Produit.findById(prod_id).populate('store_id', 'name');
     if (!produit) {
-      console.log('Produit non trouvé avec l\'ID:', prod_id);
       return res.status(404).json({ message: 'Produit non trouvé' });
     }
 
@@ -105,12 +102,12 @@ exports.createAchat = async (req, res) => {
     await achat.save();
 
     console.log('Achat créé avec succès:', achat._id);
-    
-    // ✅ Incrémenter le nombre d'achats du produit
+
+    // Incrémenter le nombre d'achats du produit
     await produitController.incrementPurchaseCount(prod_id);
-    
+
     await achat.populate('store_id', 'name description');
-    
+
     res.status(201).json({
       success: true,
       achat,
@@ -121,7 +118,6 @@ exports.createAchat = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Erreur création achat:', error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -166,16 +162,12 @@ exports.getAchats = async (req, res) => {
 exports.getAchatsByBoutique = async (req, res) => {
   try {
     const { store_id } = req.params;
-    
-    console.log('Récupération des achats pour la boutique:', store_id);
-    
+
     const achats = await Achat.find({ store_id: store_id })
       .populate('items.prod_id', 'nom_prod prix_unitaire image_Url store_id')
       .populate('client_id', 'name email')
       .populate('store_id', 'name description')
       .sort({ createdAt: -1 });
-
-    console.log('Achats trouvés:', achats.length);
 
     res.json({
       success: true,
@@ -183,10 +175,9 @@ exports.getAchatsByBoutique = async (req, res) => {
       data: achats
     });
   } catch (err) {
-    console.error('Erreur:', err);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: err.message 
+      message: err.message
     });
   }
 };
@@ -196,7 +187,7 @@ exports.getAchatsByBoutique = async (req, res) => {
  */
 exports.getAchatById = async (req, res) => {
   try {
-    // ✅ Populer aussi le store_id avec le nom de la boutique
+    // Populer aussi le store_id avec le nom de la boutique
     const achat = await Achat.findById(req.params.id)
       .populate('items.prod_id', 'nom_prod prix_unitaire image_Url store_id')
       .populate('client_id', 'name email')
@@ -220,7 +211,7 @@ exports.updateAchat = async (req, res) => {
   try {
     const achat = await Achat.findByIdAndUpdate(req.params.id, req.body, { new: true })
       .populate('store_id', 'name description');
-      
+
     res.json({
       success: true,
       data: achat

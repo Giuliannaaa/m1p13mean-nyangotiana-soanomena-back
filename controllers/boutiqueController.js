@@ -33,7 +33,7 @@ exports.createBoutique = async (req, res) => {
                 boutique.images.push({
                     url: filePath,
                     altText: file.name,
-                    isCover: boutique.images.length === 0 // La première image est la couverture par défaut
+                    isLogo: boutique.images.length === 0 // La première image est la couverture par défaut
                 });
             }
             await boutique.save();
