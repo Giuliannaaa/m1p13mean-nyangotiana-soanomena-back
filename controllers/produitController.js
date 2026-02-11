@@ -1,8 +1,37 @@
-const mongoose = require('mongoose');
 const Produit = require('../models/Produits');
 const Boutique = require('../models/Boutique');
+const Promotion = require('../models/Promotions');
 const jwt = require('jsonwebtoken');
 const config = require('../config/config');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs').promises;
+
+/**
+ * FONCTION UTILITAIRE : Mettre à jour isPromoted basé sur les promotions actives
+ */
+const updatePromotionStatus = async (produitId) => {
+  try {
+    const now = new Date();
+
+    // Chercher une promotion active pour ce produit
+    const activePromotion = await Promotion.findOne({
+      prod_id: produitId,
+      est_Active: true,
+      debut: { $lte: now },
+      fin: { $gte: now }
+    });
+
+    // Mettre à jour isPromoted basé sur la présence d'une promotion active
+    await Produit.findByIdAndUpdate(
+      produitId,
+      { isPromoted: !!activePromotion }, // true si promotion active, false sinon
+      //{ new: true }
+    );
+  } catch (error) {
+    console.error('Erreur updatePromotionStatus:', error);
+  }
+};
 
 /**
  * Créer un produit (associé à la boutique de l'utilisateur connecté)
@@ -11,7 +40,7 @@ exports.createProduit = async (req, res) => {
   try {
     let store_id;
 
-    // Si l'utilisateur est un propriétaire de boutique
+    // Si l'utilisateur est un propriétaire de boutique 
     if (req.user.role === 'Boutique') {
       if (!req.boutique) {
         return res.status(403).json({
@@ -56,8 +85,8 @@ exports.createProduit = async (req, res) => {
       stock_etat: req.body.stock_etat === 'true' || req.body.stock_etat === true,
       type_produit: req.body.type_produit,
       livraison: livraison,
-      image_Url: req.file ? req.file.path : '',
-      // ✅ Initialiser les champs de filtrage
+      image_Url: '',
+      // Initialiser les champs de filtrage
       isNew: true,
       isBestSeller: false,
       isPromoted: false,
@@ -65,6 +94,20 @@ exports.createProduit = async (req, res) => {
       views: 0
     });
 
+
+    if (req.files.image_Url) {
+      const file = req.files.image_Url;
+
+      const uploadDir = path.join('uploads/product', produit._id.toString());
+      await fs.mkdir(uploadDir, { recursive: true });
+
+      const filename = `${file.name}`;
+      const filePath = path.join(uploadDir, filename);
+
+      await file.mv(filePath);
+
+      produit.image_Url = filePath;
+    }
     await produit.save();
 
     // Peupler les infos de la boutique
@@ -89,6 +132,8 @@ exports.createProduit = async (req, res) => {
  */
 exports.getProduits = async (req, res) => {
   try {
+    console.log("getProduits used");
+
     let token;
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
       token = req.headers.authorization.split(' ')[1];
@@ -104,10 +149,8 @@ exports.getProduits = async (req, res) => {
 
     const decodedToken = jwt.verify(token, config.jwtSecret);
     const role = decodedToken.role;
-    console.log('User role:', role);
 
     const boutiqueRattachee = await Boutique.findOne({ ownerId: decodedToken.id });
-    console.log('Boutique attached:', boutiqueRattachee);
 
     let query = {};
 
@@ -118,8 +161,6 @@ exports.getProduits = async (req, res) => {
     // Si c'est un acheteur
     else if (role === 'Acheteur') {
       const boutiquesValidees = await Boutique.find({ isValidated: true }).select('_id');
-      console.log('Boutiques validées trouvées:', boutiquesValidees.length);
-      console.log('IDs des boutiques validées:', boutiquesValidees.map(b => b._id));
 
       query.store_id = { $in: boutiquesValidees.map(b => b._id.toString()) };
     }
@@ -129,18 +170,24 @@ exports.getProduits = async (req, res) => {
       query.store_id = { $in: boutique.map(b => b._id) };
     }
 
-    console.log('Query utilisée:', JSON.stringify(query));
-
     const produits = await Produit.find(query)
       .populate('store_id', 'name description categoryId')
       .sort({ createdAt: -1 });
 
-    console.log('Produits trouvés:', produits.length);
+    // Mettre à jour isPromoted pour chaque produit basé sur les promotions actives
+    for (const produit of produits) {
+      await updatePromotionStatus(produit._id);
+    }
+
+    // Récupérer les produits à nouveau avec les flags à jour
+    const produitsUpdated = await Produit.find(query)
+      .populate('store_id', 'name description categoryId')
+      .sort({ createdAt: -1 });
 
     res.json({
       success: true,
-      count: produits.length,
-      data: produits
+      count: produitsUpdated.length,
+      data: produitsUpdated
     });
   } catch (error) {
     console.error('Erreur dans getProduits:', error);
@@ -165,10 +212,13 @@ exports.getProduitById = async (req, res) => {
         message: 'Produit non trouvé'
       });
     }
-    
-    // ✅ Incrémenter le nombre de vues
+
+    // Incrémenter le nombre de vues
     produit.views = (produit.views || 0) + 1;
     await produit.save();
+
+    // Mettre à jour isPromoted basé sur les promotions actives
+    await updatePromotionStatus(req.params.id);
 
     res.json({
       success: true,
@@ -217,8 +267,27 @@ exports.updateProduit = async (req, res) => {
     }
 
     // Si un nouveau fichier est uploadé
-    if (req.file) {
-      req.body.image_Url = req.file.path;
+    if (req.files && req.files.image_Url) {
+      const file = req.files.image_Url;
+
+      const uploadDir = path.join('uploads/product', req.params.id);
+      await fs.mkdir(uploadDir, { recursive: true });
+
+      const filename = `${file.name}`;
+      const filePath = path.join(uploadDir, filename);
+
+      // Optionnel : Supprimer l'ancienne image si elle existe
+      if (produit.image_Url && produit.image_Url !== filePath) {
+        try {
+          await fs.unlink(produit.image_Url);
+        } catch (err) {
+          console.error('Erreur suppression ancienne image:', err);
+        }
+      }
+
+      await file.mv(filePath);
+
+      req.body.image_Url = filePath;
     }
 
     produit = await Produit.findByIdAndUpdate(
@@ -265,6 +334,14 @@ exports.deleteProduit = async (req, res) => {
 
     await Produit.findByIdAndDelete(req.params.id);
 
+    // Supprimer le dossier des images du produit
+    const uploadDir = path.join('uploads/product', req.params.id);
+    try {
+      await fs.rm(uploadDir, { recursive: true, force: true });
+    } catch (err) {
+      console.error('Erreur suppression dossier produit:', err);
+    }
+
     res.json({
       success: true,
       message: 'Produit supprimé avec succès'
@@ -278,13 +355,20 @@ exports.deleteProduit = async (req, res) => {
 };
 
 /**
- * Obtenir les produits "Nouveau"
+ * Obtenir les produits "Nouveau" (créés il y a moins de 30 jours)
  */
 exports.getNewProduits = async (req, res) => {
   try {
-    const produits = await Produit.find({ isNew: true })
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    // Chercher les produits créés APRÈS thirtyDaysAgo
+    const produits = await Produit.find({
+      createdAt: { $gte: thirtyDaysAgo }  // créé après 30 jours
+    })
       .populate('store_id', 'name description')
       .sort({ createdAt: -1 });
+
+    console.log('Produits nouveaux trouvés:', produits.length);
 
     res.json({
       success: true,
@@ -292,6 +376,7 @@ exports.getNewProduits = async (req, res) => {
       data: produits
     });
   } catch (error) {
+    console.error('Erreur getNewProduits:', error);
     res.status(500).json({
       success: false,
       message: error.message
@@ -300,7 +385,7 @@ exports.getNewProduits = async (req, res) => {
 };
 
 /**
- * Obtenir les produits "Populaire"
+ * Obtenir les produits "Populaire" (qu'ils soient en promotion ou non)
  */
 exports.getPopularProduits = async (req, res) => {
   try {
@@ -327,7 +412,7 @@ exports.getPopularProduits = async (req, res) => {
 };
 
 /**
- * Obtenir les produits "Best-seller"
+ * Obtenir les produits "Best-seller" (qu'ils soient en promotion ou non)
  */
 exports.getBestSellerProduits = async (req, res) => {
   try {
@@ -349,13 +434,31 @@ exports.getBestSellerProduits = async (req, res) => {
 };
 
 /**
- * Obtenir les produits en "Promotion"
+ * Obtenir les produits en "Promotion" (avec vérification des dates)
  */
 exports.getPromotedProduits = async (req, res) => {
   try {
-    const produits = await Produit.find({ isPromoted: true })
+    const now = new Date();
+
+    // Chercher les promotions actives et valides (entre debut et fin)
+    const activePromotions = await Promotion.find({
+      est_Active: true,
+      debut: { $lte: now },
+      fin: { $gte: now }
+    }).select('prod_id');
+
+    const productIds = activePromotions.map(p => p.prod_id);
+
+    // Récupérer les produits avec ces IDs
+    const produits = await Produit.find({ _id: { $in: productIds } })
       .populate('store_id', 'name description')
       .sort({ createdAt: -1 });
+
+    // ✅ Marquer isPromoted = true pour ces produits
+    await Produit.updateMany(
+      { _id: { $in: productIds } },
+      { isPromoted: true }
+    );
 
     res.json({
       success: true,
@@ -372,22 +475,43 @@ exports.getPromotedProduits = async (req, res) => {
 
 /**
  * Incrémenter le nombre d'achats d'un produit
- * (À appeler quand un achat est créé)
  */
 exports.incrementPurchaseCount = async (produitId) => {
   try {
     const produit = await Produit.findById(produitId);
     if (produit) {
       produit.purchaseCount = (produit.purchaseCount || 0) + 1;
-      
+
       // Si plus de 10 achats, marquer comme best-seller
       if (produit.purchaseCount > 10) {
         produit.isBestSeller = true;
       }
-      
+
       await produit.save();
     }
   } catch (error) {
     console.error('Erreur incrementPurchaseCount:', error);
+  }
+};
+
+/**
+ * Obtenir les produits d'une boutique spécifique
+ */
+exports.getProduitOfStore = async (req, res) => {
+  try {
+    const store_id = req.params.store_id;
+    const produits = await Produit.find({ store_id: store_id })
+      .populate('store_id', 'name description')
+      .sort({ createdAt: -1 });
+    res.json({
+      success: true,
+      count: produits.length,
+      data: produits
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
 };

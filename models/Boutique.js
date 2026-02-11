@@ -12,8 +12,18 @@ const boutiqueSchema = new mongoose.Schema(
             stat: { type: String, trim: true },
             rent: { type: String, trim: true }
         },
-        
-        // Filtres spéciaux
+
+        images: [
+            {
+                url: { type: String, required: true },
+                altText: String,
+                isLogo: { type: Boolean, default: false },
+                position: Number,
+                uploadedAt: { type: Date, default: Date.now }
+            }
+        ],
+
+        // ✅ Ajouter ces champs pour les filtres spéciaux
         isNew: { type: Boolean, default: true }, // Nouvelle boutique (créée il y a moins de 30 jours)
         isPopular: { type: Boolean, default: false }, // Boutique populaire
         isFeatured: { type: Boolean, default: false }, // Boutique mise en avant

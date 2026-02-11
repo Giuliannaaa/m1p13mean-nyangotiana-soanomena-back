@@ -1,6 +1,7 @@
 const Panier = require('../models/Panier');
 const Produit = require('../models/Produits');
 const Achat = require('../models/Achat');
+const Promotion = require('../models/Promotions');
 
 // @desc    Get current user's cart
 // @route   GET /api/panier
@@ -163,6 +164,34 @@ exports.removeFromPanier = async (req, res, next) => {
 // @desc    Validate cart and create orders (Achats)
 // @route   POST /api/panier/validate
 // @access  Private (Acheteur only)
+
+/**
+ * Récupérer la promotion active pour un produit (Copied from achatController for isolation or import if preferred)
+ */
+const getPromotionActive = async (prod_id) => {
+    const now = new Date();
+    return await Promotion.findOne({
+        prod_id: prod_id,
+        est_Active: true,
+        debut: { $lte: now },
+        fin: { $gte: now }
+    });
+};
+
+/**
+ * Calculer la réduction selon le type de promotion
+ */
+const calculerReduction = (prix_unitaire, quantite, promotion) => {
+    if (!promotion) return 0;
+    const montantPromo = parseFloat(promotion.montant.toString());
+    const totalAvantReduc = prix_unitaire * quantite;
+    if (promotion.type_prom === 'POURCENTAGE') {
+        return totalAvantReduc * (montantPromo / 100);
+    } else {
+        return montantPromo * quantite;
+    }
+};
+
 exports.validatePanier = async (req, res, next) => {
     try {
         const { avecLivraison } = req.body;
@@ -193,32 +222,36 @@ exports.validatePanier = async (req, res, next) => {
 
             // Calculate totals for this store's order
             let totalAchat = 0;
-            const achatItems = storeItems.map(item => {
+            let totalReduction = 0;
+            const achatItems = [];
+
+            for (const item of storeItems) {
                 const prix = parseFloat(item.prixUnitaire.toString());
                 totalAchat += prix * item.quantite;
 
-                return {
+                // Check for active promotion
+                const promotion = await getPromotionActive(item.produit._id);
+                const reductionItem = calculerReduction(prix, item.quantite, promotion);
+                totalReduction += reductionItem;
+
+                achatItems.push({
                     prod_id: item.produit._id,
-                    nom_prod: item.produit.nom_prod, // Assuming these fields exist based on Achat model requirements
+                    nom_prod: item.produit.nom_prod,
                     image_url: item.produit.image_Url || '',
                     quantity: item.quantite,
-                    prix_unitaire: prix
-                };
-            });
+                    prix_unitaire: prix,
+                    promotion_id: promotion ? promotion._id : null
+                });
+            }
 
-            // Basic logic: No promo, no shipping fees in this simple version unless passed?
-            // User requested "Passer au panier et c'est apres validation qu'on passe à l'achat".
-            // We assume standard checkout.
-
-            const reduction = 0;
             const frais_livraison = avecLivraison ? 3000 : 0;
-            const total_reel = totalAchat - reduction + frais_livraison;
+            const total_reel = totalAchat - totalReduction + frais_livraison;
 
             const achat = new Achat({
                 client_id: req.user.id,
                 store_id: storeId,
                 total_achat: totalAchat,
-                reduction: reduction,
+                reduction: totalReduction,
                 frais_livraison: frais_livraison,
                 avec_livraison: avecLivraison,
                 total_reel: total_reel,
