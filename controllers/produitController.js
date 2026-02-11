@@ -132,6 +132,8 @@ exports.createProduit = async (req, res) => {
  */
 exports.getProduits = async (req, res) => {
   try {
+    console.log("getProduits used");
+
     let token;
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
       token = req.headers.authorization.split(' ')[1];
@@ -147,10 +149,8 @@ exports.getProduits = async (req, res) => {
 
     const decodedToken = jwt.verify(token, config.jwtSecret);
     const role = decodedToken.role;
-    console.log('User role:', role);
 
     const boutiqueRattachee = await Boutique.findOne({ ownerId: decodedToken.id });
-    console.log('Boutique attached:', boutiqueRattachee);
 
     let query = {};
 
@@ -161,8 +161,6 @@ exports.getProduits = async (req, res) => {
     // Si c'est un acheteur
     else if (role === 'Acheteur') {
       const boutiquesValidees = await Boutique.find({ isValidated: true }).select('_id');
-      console.log('Boutiques validées trouvées:', boutiquesValidees.length);
-      console.log('IDs des boutiques validées:', boutiquesValidees.map(b => b._id));
 
       query.store_id = { $in: boutiquesValidees.map(b => b._id.toString()) };
     }
@@ -172,13 +170,9 @@ exports.getProduits = async (req, res) => {
       query.store_id = { $in: boutique.map(b => b._id) };
     }
 
-    console.log('Query utilisée:', JSON.stringify(query));
-
     const produits = await Produit.find(query)
       .populate('store_id', 'name description categoryId')
       .sort({ createdAt: -1 });
-
-    console.log('Produits trouvés:', produits.length);
 
     // Mettre à jour isPromoted pour chaque produit basé sur les promotions actives
     for (const produit of produits) {
