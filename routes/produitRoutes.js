@@ -56,4 +56,6 @@ router.delete('/produits/:id',
   produitController.deleteProduit
 );
 
+router.get('/produits/store/:store_id', produitController.getProduitOfStore);
+
 module.exports = router;

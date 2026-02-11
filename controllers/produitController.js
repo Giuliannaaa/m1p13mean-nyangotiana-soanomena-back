@@ -499,3 +499,25 @@ exports.incrementPurchaseCount = async (produitId) => {
     console.error('Erreur incrementPurchaseCount:', error);
   }
 };
+
+/**
+ * Obtenir les produits d'une boutique spécifique
+ */
+exports.getProduitOfStore = async (req, res) => {
+  try {
+    const store_id = req.params.store_id;
+    const produits = await Produit.find({ store_id: store_id })
+      .populate('store_id', 'name description')
+      .sort({ createdAt: -1 });
+    res.json({
+      success: true,
+      count: produits.length,
+      data: produits
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
