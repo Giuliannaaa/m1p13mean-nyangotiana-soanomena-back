@@ -11,7 +11,15 @@ const boutiqueSchema = new mongoose.Schema(
             nif: { type: String, trim: true },
             stat: { type: String, trim: true },
             rent: { type: String, trim: true }
-        }
+        },
+        
+        // Filtres spéciaux
+        isNew: { type: Boolean, default: true }, // Nouvelle boutique (créée il y a moins de 30 jours)
+        isPopular: { type: Boolean, default: false }, // Boutique populaire
+        isFeatured: { type: Boolean, default: false }, // Boutique mise en avant
+        productCount: { type: Number, default: 0 }, // Nombre de produits
+        rating: { type: Number, default: 0, min: 0, max: 5 }, // Note moyenne (0-5)
+        followers: { type: Number, default: 0 } // Nombre de followers/clients
     },
     {
         timestamps: true

@@ -7,6 +7,9 @@ const authRoutes = require("./routes/authRoutes");
 const produitRoutes = require("./routes/produitRoutes");
 const promotionRoutes = require('./routes/promotionRoutes');
 const achatRoutes = require('./routes/achatRoutes');
+const suiviRoutes = require('./routes/suiviRoutes');
+const avisRoutes = require('./routes/avisRoutes');
+const signalRoutes = require('./routes/signalementRoutes');
 
 // Load env vars
 dotenv.config();
@@ -70,6 +73,15 @@ app.use('/api/panier', require('./routes/panierRoutes'));
 
 // Route Admin Dashboard
 app.use('/admin-dashboard', require('./routes/adminDashboardRoutes'));
+
+//Route suivi
+app.use('/api/suivis', suiviRoutes);
+
+//Route note boutique
+app.use('/api/avis', require('./routes/avisRoutes'));
+
+//Route signalement
+app.use('/api/signalements', require('./routes/signalementRoutes'));
 
 startServer();
 initUserAdmin();
