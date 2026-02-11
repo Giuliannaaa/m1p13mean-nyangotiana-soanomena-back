@@ -31,10 +31,6 @@ const connectDB = async () => {
 
   } catch (error) {
     console.error('- MongoDB connection failed:', error.message);
-    console.log('\n Troubleshooting:');
-    console.log('1. Make sure MongoDB is running');
-    console.log('2. Check your connection string in .env');
-    console.log('3. Verify network connectivity');
     process.exit(1);
   }
 };
