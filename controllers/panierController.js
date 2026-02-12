@@ -256,7 +256,7 @@ exports.validatePanier = async (req, res, next) => {
                 avec_livraison: avecLivraison,
                 total_reel: total_reel,
                 items: achatItems,
-                status: 'EN ATTENTE'
+                status: 'EN_ATTENTE'
             });
 
             await achat.save();
