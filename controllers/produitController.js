@@ -132,8 +132,6 @@ exports.createProduit = async (req, res) => {
  */
 exports.getProduits = async (req, res) => {
   try {
-    console.log("getProduits used");
-
     let token;
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
       token = req.headers.authorization.split(' ')[1];
@@ -509,6 +507,54 @@ exports.getProduitOfStore = async (req, res) => {
       data: produits
     });
   } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+exports.updateProductPrice = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { prix_unitaire } = req.body;
+
+    if (prix_unitaire === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: 'Le prix unitaire est requis'
+      });
+    }
+
+    const produit = await Produit.findById(id);
+
+    if (!produit) {
+      return res.status(404).json({
+        success: false,
+        message: 'Produit non trouvé'
+      });
+    }
+
+    // Vérifier les permissions
+    if (req.user.role === 'Boutique') {
+      if (!req.boutique || produit.store_id.toString() !== req.boutique._id.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: 'Vous ne pouvez modifier que le prix de vos propres produits'
+        });
+      }
+    }
+
+    produit.prix_unitaire = prix_unitaire;
+    await produit.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Prix mis à jour avec succès',
+      data: produit
+    });
+  } catch (error) {
+    console.error('Erreur updateProductPrice:', error);
     res.status(500).json({
       success: false,
       message: error.message
