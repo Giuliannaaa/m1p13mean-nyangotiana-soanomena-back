@@ -49,6 +49,13 @@ router.put('/produits/:id',
   produitController.updateProduit
 );
 
+// UPDATE - Boutique peuvent modifier le prix d'un produit
+router.put('/produits/update-prix-produit/:id',
+  protect,
+  authorize('Boutique'),
+  produitController.updateProductPrice
+);
+
 // DELETE - Admin ET Boutique peuvent supprimer
 router.delete('/produits/:id',
   protect,
