@@ -92,5 +92,8 @@ app.use('/api/avis', require('./routes/avisRoutes'));
 //Route signalement
 app.use('/api/signalements', require('./routes/signalementRoutes'));
 
+//Messagerie
+app.use('/api/messages', require('./routes/messageRoutes'));
+
 startServer();
 initUserAdmin();
