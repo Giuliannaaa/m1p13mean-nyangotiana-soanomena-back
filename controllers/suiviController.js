@@ -7,7 +7,7 @@ const Boutique = require('../models/Boutique');
 exports.suivreBoutique = async (req, res) => {
   try {
     const { boutique_id } = req.body;
-    const acheteur_id = req.user.id; // ✅ ID de l'utilisateur connecté
+    const acheteur_id = req.user.id; // ID de l'utilisateur connecté
 
     // Vérifier que la boutique existe
     const boutique = await Boutique.findById(boutique_id);
@@ -35,7 +35,7 @@ exports.suivreBoutique = async (req, res) => {
 
     await suivi.save();
 
-    // ✅ Incrémenter le nombre de followers de la boutique
+    // Incrémenter le nombre de followers de la boutique
     boutique.followers = (boutique.followers || 0) + 1;
     await boutique.save();
 
@@ -71,7 +71,7 @@ exports.arreterSuivreBoutique = async (req, res) => {
       });
     }
 
-    // ✅ Décrémenter le nombre de followers de la boutique
+    // Décrémenter le nombre de followers de la boutique
     await Boutique.findByIdAndUpdate(
       boutique_id,
       { $inc: { followers: -1 } },
