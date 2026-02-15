@@ -77,6 +77,16 @@ exports.createProduit = async (req, res) => {
         : req.body.livraison)
       : { disponibilite: false, frais: 0 };
 
+    // Gérer le stock selon le type de produit
+    if (req.body.type_produit === 'SERVICE') {
+      req.body.stock = null; // Forcer stock à null pour les services
+    } else if (req.body.type_produit === 'PRODUIT') {
+      // Si stock n'est pas fourni pour un produit, utiliser l'ancien ou 0
+      if (req.body.stock === undefined || req.body.stock === null || req.body.stock === '') {
+        req.body.stock = produit.stock || 0;
+      }
+    }
+
     const produit = new Produit({
       store_id: store_id,
       nom_prod: req.body.nom_prod,
@@ -91,7 +101,8 @@ exports.createProduit = async (req, res) => {
       isBestSeller: false,
       isPromoted: false,
       purchaseCount: 0,
-      views: 0
+      views: 0,
+      stock: req.body.stock,
     });
 
 
@@ -202,7 +213,7 @@ exports.getProduits = async (req, res) => {
 exports.getProduitById = async (req, res) => {
   try {
     const produit = await Produit.findById(req.params.id)
-      .populate('store_id', 'name description categoryId ownerId');
+      .populate('store_id', 'name description categoryId ownerId stock');
 
     if (!produit) {
       return res.status(404).json({
@@ -262,6 +273,16 @@ exports.updateProduit = async (req, res) => {
     // Parser la livraison si elle est en string (à cause de multer)
     if (req.body.livraison && typeof req.body.livraison === 'string') {
       req.body.livraison = JSON.parse(req.body.livraison);
+    }
+
+    // Gérer le stock selon le type de produit
+    if (req.body.type_produit === 'SERVICE') {
+      req.body.stock = null; // Forcer stock à null pour les services
+    } else if (req.body.type_produit === 'PRODUIT') {
+      // Si stock n'est pas fourni pour un produit, utiliser l'ancien ou 0
+      if (req.body.stock === undefined || req.body.stock === null || req.body.stock === '') {
+        req.body.stock = produit.stock || 0;
+      }
     }
 
     // Si un nouveau fichier est uploadé

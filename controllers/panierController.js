@@ -201,67 +201,63 @@ exports.validatePanier = async (req, res, next) => {
             return res.status(400).json({ success: false, error: 'Le panier est vide' });
         }
 
-        // 1. Group items by Store (Boutique)
-        const itemsByStore = {};
-
-        panier.items.forEach(item => {
-            if (!item.produit) return; // Skip if product deleted
-
-            const storeId = item.produit.store_id.toString();
-            if (!itemsByStore[storeId]) {
-                itemsByStore[storeId] = [];
+        // 0. Pre-check stock for all items
+        for (const item of panier.items) {
+            if (item.produit && item.produit.type_produit === 'PRODUIT') {
+                if (!item.produit.stock || item.produit.stock < item.quantite) {
+                    return res.status(400).json({
+                        success: false,
+                        error: `Stock insuffisant pour le produit: ${item.produit.nom_prod}`
+                    });
+                }
             }
-            itemsByStore[storeId].push(item);
+        }
+
+        // 1. Calculate totals for the entire order
+        let totalAchat = 0;
+        let totalReduction = 0;
+        const achatItems = [];
+
+        for (const item of panier.items) {
+            if (!item.produit) continue;
+
+            const prix = parseFloat(item.prixUnitaire.toString());
+            totalAchat += prix * item.quantite;
+
+            // Check for active promotion
+            const promotion = await getPromotionActive(item.produit._id);
+            const reductionItem = calculerReduction(prix, item.quantite, promotion);
+            totalReduction += reductionItem;
+
+            achatItems.push({
+                prod_id: item.produit._id,
+                nom_prod: item.produit.nom_prod,
+                image_url: item.produit.image_Url || '',
+                quantity: item.quantite,
+                prix_unitaire: prix,
+                promotion_id: promotion ? promotion._id : null,
+                store_id: item.produit.store_id // Save store_id per item
+            });
+        }
+
+        const frais_livraison = avecLivraison ? 3000 : 0;
+        const total_reel = totalAchat - totalReduction + frais_livraison;
+
+        // 2. Create the single Achat record
+        const achat = new Achat({
+            client_id: req.user._id || req.user.id,
+            // Root store_id can be null or the first store's ID if single-store
+            store_id: panier.items.length > 0 ? panier.items[0].produit.store_id : null,
+            total_achat: totalAchat,
+            reduction: totalReduction,
+            frais_livraison: frais_livraison,
+            avec_livraison: avecLivraison,
+            total_reel: total_reel,
+            items: achatItems,
+            status: 'EN_ATTENTE'
         });
 
-        const createdAchats = [];
-
-        // 2. Create one Achat per Store
-        for (const storeId of Object.keys(itemsByStore)) {
-            const storeItems = itemsByStore[storeId];
-
-            // Calculate totals for this store's order
-            let totalAchat = 0;
-            let totalReduction = 0;
-            const achatItems = [];
-
-            for (const item of storeItems) {
-                const prix = parseFloat(item.prixUnitaire.toString());
-                totalAchat += prix * item.quantite;
-
-                // Check for active promotion
-                const promotion = await getPromotionActive(item.produit._id);
-                const reductionItem = calculerReduction(prix, item.quantite, promotion);
-                totalReduction += reductionItem;
-
-                achatItems.push({
-                    prod_id: item.produit._id,
-                    nom_prod: item.produit.nom_prod,
-                    image_url: item.produit.image_Url || '',
-                    quantity: item.quantite,
-                    prix_unitaire: prix,
-                    promotion_id: promotion ? promotion._id : null
-                });
-            }
-
-            const frais_livraison = avecLivraison ? 3000 : 0;
-            const total_reel = totalAchat - totalReduction + frais_livraison;
-
-            const achat = new Achat({
-                client_id: req.user.id,
-                store_id: storeId,
-                total_achat: totalAchat,
-                reduction: totalReduction,
-                frais_livraison: frais_livraison,
-                avec_livraison: avecLivraison,
-                total_reel: total_reel,
-                items: achatItems,
-                status: 'EN_ATTENTE'
-            });
-
-            await achat.save();
-            createdAchats.push(achat);
-        }
+        await achat.save();
 
         // 3. Clear Cart
         panier.items = [];
@@ -270,8 +266,8 @@ exports.validatePanier = async (req, res, next) => {
 
         res.status(200).json({
             success: true,
-            message: 'Commandes créées avec succès',
-            data: createdAchats
+            message: 'Commande créée avec succès',
+            data: [achat] // Keep as array for frontend compatibility
         });
 
     } catch (err) {
