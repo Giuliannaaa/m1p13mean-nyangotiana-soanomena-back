@@ -27,7 +27,8 @@ const ProduitSchema = new mongoose.Schema({
   stock: {
     type: Number,
     required: false,
-    min: 0
+    min: 0,
+    default: null
   },
 
 }, { timestamps: true });
@@ -50,6 +51,19 @@ ProduitSchema.pre('save', function (next) {
     }
   }
 
+  next();
+});
+
+// Validation personnalisée
+ProduitSchema.pre('save', function (next) {
+  // Si c'est un SERVICE, on met stock à null
+  if (this.type_produit === 'SERVICE') {
+    this.stock = null;
+  }
+  // Si c'est un PRODUIT et stock n'est pas défini, on met 0
+  else if (this.type_produit === 'PRODUIT' && (this.stock === null || this.stock === undefined)) {
+    this.stock = 0;
+  }
   next();
 });
 

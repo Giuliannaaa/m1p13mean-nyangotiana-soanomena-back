@@ -19,8 +19,15 @@ router.get('/boutique/:store_id', authorize('Boutique', 'Admin'), achatControlle
 // getAchats sera filtré par rôle dans le contrôleur
 router.get('/', achatController.getAchats);
 
+// Route PATCH pour mettre à jour le statut
+router.patch('/:id/status', authorize('Boutique', 'Admin'), achatController.updateOrderStatus);
+
 // Routes GET/DELETE par ID (les plus générales) - EN DERNIER
 router.get('/:id', achatController.getAchatById);
 router.delete('/:id', authorize('Admin'), achatController.deleteAchat);
+
+// Update achat status
+router.put('/update-status/:id', authorize('Acheteur', 'Boutique', 'Admin'), achatController.updateOrderStatus);
+router.patch('/:id/status', authorize('Acheteur', 'Boutique', 'Admin'), achatController.updateOrderStatus);
 
 module.exports = router;
