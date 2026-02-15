@@ -7,7 +7,12 @@ const AchatProdSchema = new mongoose.Schema({
   image_url: { type: String, default: '' },
   quantity: { type: Number, required: true },
   prix_unitaire: { type: mongoose.Schema.Types.Decimal128, required: true },
-  store_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Boutique' }
+  store_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Boutique' },
+  status: {
+    type: String,
+    enum: ['EN_ATTENTE', 'CONFIRMEE', 'EN_LIVRAISON', 'DELIVREE', 'ANNULEE'],
+    default: 'EN_ATTENTE'
+  }
 });
 
 const AchatSchema = new mongoose.Schema({

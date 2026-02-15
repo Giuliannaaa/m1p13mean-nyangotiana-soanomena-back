@@ -236,7 +236,8 @@ exports.validatePanier = async (req, res, next) => {
                 quantity: item.quantite,
                 prix_unitaire: prix,
                 promotion_id: promotion ? promotion._id : null,
-                store_id: item.produit.store_id // Save store_id per item
+                store_id: item.produit.store_id, // Save store_id per item
+                status: 'EN_ATTENTE'
             });
         }
 
