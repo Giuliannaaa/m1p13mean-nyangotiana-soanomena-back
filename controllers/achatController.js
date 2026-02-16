@@ -95,7 +95,8 @@ exports.createAchat = async (req, res) => {
         image_url: produit.image_Url || "",
         quantity: quantity,
         prix_unitaire: prixUnitaire,
-        store_id: produit.store_id
+        store_id: produit.store_id,
+        status: 'EN_ATTENTE'
       }],
       promotion_id: promotion ? promotion._id : null
     });
@@ -287,79 +288,84 @@ exports.updateOrderStatus = async (req, res) => {
 
     // 1. Vérification de l'autorisation de base par rôle
     if (user.role === 'Acheteur') {
-      // Un acheteur ne peut modifier que sa propre commande
       if (achat.client_id.toString() !== user.id.toString()) {
-        return res.status(403).json({
-          success: false,
-          message: 'Vous n\'êtes pas autorisé à modifier cette commande'
-        });
+        return res.status(403).json({ success: false, message: 'Non autorisé' });
       }
-      // Un acheteur ne peut modifier que si le statut est EN_ATTENTE
       if (oldStatus !== 'EN_ATTENTE') {
-        return res.status(403).json({
-          success: false,
-          message: 'Vous ne pouvez plus modifier cette commande à ce stade'
-        });
+        return res.status(403).json({ success: false, message: 'Modification impossible à ce stade' });
       }
+      // L'acheteur annule ou confirme TOUTE la commande
+      achat.items.forEach(item => item.status = status);
     } else if (user.role === 'Boutique' || user.role === 'boutique') {
-      // Une boutique ne peut modifier que les commandes qui lui appartiennent
-      if (!boutique || achat.store_id.toString() !== boutique._id.toString()) {
-        return res.status(403).json({
-          success: false,
-          message: 'Cette commande n\'appartient pas à votre boutique'
-        });
+      if (!boutique) {
+        return res.status(403).json({ success: false, message: 'Boutique non rattachée' });
       }
-    } else if (user.role !== 'Admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Rôle non autorisé pour cette action'
-      });
-    }
 
-    // 2. Valider la transition de statut
-    if (!transitions[oldStatus]) {
-      return res.status(400).json({
-        success: false,
-        message: 'Statut actuel de la commande invalide'
-      });
-    }
+      // Est-ce que la boutique possède au moins un article dans cette commande ?
+      const hasOwnItems = achat.items.some(item =>
+        item.store_id && item.store_id.toString() === boutique._id.toString()
+      );
 
-    if (!transitions[oldStatus].includes(status)) {
-      return res.status(400).json({
-        success: false,
-        message: `Transition invalide: ${oldStatus} → ${status}`
-      });
-    }
+      if (!hasOwnItems && achat.store_id.toString() !== boutique._id.toString()) {
+        return res.status(403).json({ success: false, message: 'Cette commande ne contient aucun de vos produits' });
+      }
 
-    // 3. Logique de gestion du stock sur livraison
-    if (status === 'DELIVREE' && oldStatus !== 'DELIVREE') {
+      // Mettre à jour SEULEMENT les articles de cette boutique
+      let updatedAnything = false;
       for (const item of achat.items) {
-        // On récupère le produit pour vérifier son type
-        const produit = await Produit.findById(item.prod_id);
-        if (produit && produit.type_produit === 'PRODUIT') {
-          if (produit.stock < item.quantity) {
-            return res.status(400).json({
-              success: false,
-              message: 'Stock insuffisant pour cette commande'
-            });
+        if (item.store_id && item.store_id.toString() === boutique._id.toString()) {
+          // Valider transition pour cet item spécifique
+          const itemOldStatus = item.status || 'EN_ATTENTE';
+          if (transitions[itemOldStatus].includes(status)) {
+            item.status = status;
+            updatedAnything = true;
+
+            // Gestion du stock si DELIVREE
+            if (status === 'DELIVREE' && itemOldStatus !== 'DELIVREE') {
+              const produit = await Produit.findById(item.prod_id);
+              if (produit && produit.type_produit === 'PRODUIT') {
+                if (produit.stock >= item.quantity) {
+                  produit.stock -= item.quantity;
+                  await produit.save();
+                }
+              }
+            }
           }
-          produit.stock -= item.quantity;
-          await produit.save();
-          console.log(`Stock diminué pour ${produit.nom_prod}: -${item.quantity} (Livraison effectuée)`);
         }
       }
+
+      if (!updatedAnything) {
+        return res.status(400).json({ success: false, message: 'Aucune transition valide pour vos produits' });
+      }
+    } else if (user.role !== 'Admin') {
+      return res.status(403).json({ success: false, message: 'Rôle non autorisé' });
+    } else if (user.role === 'Admin') {
+      // L'admin peut tout changer
+      achat.items.forEach(item => item.status = status);
     }
 
-    // 4. Validation spécifique pour la livraison
-    if (status === 'EN_LIVRAISON' && !achat.avec_livraison) {
-      return res.status(400).json({
-        success: false,
-        message: 'Impossible de passer en livraison : cette commande n\'a pas de livraison'
-      });
+    // 2. Mettre à jour le statut global de la commande (Consensus)
+    // - Si tous les articles sont ANNULEE -> ANNULEE
+    // - Si tous les articles sont DELIVREE -> DELIVREE
+    // - Si au moins un est EN_LIVRAISON -> EN_LIVRAISON
+    // - Si au moins un est CONFIRMEE et aucun EN_LIVRAISON -> CONFIRMEE
+    // - Sinon -> EN_ATTENTE
+
+    const itemStatuses = achat.items.map(i => i.status);
+
+    if (itemStatuses.every(s => s === 'ANNULEE')) {
+      achat.status = 'ANNULEE';
+    } else if (itemStatuses.every(s => s === 'DELIVREE' || s === 'ANNULEE')) {
+      // Si tout est fini (livré ou annulé), on met DELIVREE (ou un statut fini)
+      achat.status = 'DELIVREE';
+    } else if (itemStatuses.includes('EN_LIVRAISON')) {
+      achat.status = 'EN_LIVRAISON';
+    } else if (itemStatuses.includes('CONFIRMEE')) {
+      achat.status = 'CONFIRMEE';
+    } else {
+      achat.status = 'EN_ATTENTE';
     }
 
-    // Mettre à jour le statut
-    achat.status = status;
     await achat.save();
 
     await achat.populate('store_id', 'name description');

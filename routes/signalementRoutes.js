@@ -16,6 +16,9 @@ router.get('/admin/tous', protect, authorize('Admin'), signalementController.get
 // OBTENIR MES SIGNALEMENTS (Acheteur)
 router.get('/acheteur/mes-signalements', protect, signalementController.getMesSignalements);
 
+// Boutique : Obtenir les signalements reçus par ses produits
+router.get('/boutique/mes-signalements', protect, signalementController.getSignalementsBoutique);
+
 // Obtenir les signalements d'une boutique
 router.get('/admin/boutique/:boutique_id', protect, authorize('Admin'), signalementController.getSignalementsBoutique);
 

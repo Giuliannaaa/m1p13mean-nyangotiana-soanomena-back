@@ -215,6 +215,48 @@ exports.updateStatusSignalement = async (req, res) => {
 };
 
 /**
+ * Boutique : Obtenir les signalements reçus pour ses produits
+ */
+exports.getSignalementsBoutique = async (req, res) => {
+  try {
+    const boutiqueId = req.user.id; // L'ID de la boutique connectée
+    
+    // Récupérer tous les produits de cette boutique
+    const boutique = await Boutique.findOne({ ownerId: boutiqueId }).select('_id');
+    
+    if (!boutique) {
+      return res.status(404).json({
+        success: false,
+        message: 'Boutique non trouvée'
+      });
+    }
+
+    // Récupérer les signalements pour les produits de cette boutique
+    const signalements = await Signalement.find()
+      .populate('produit_id', 'nom_prod')
+      .populate('acheteur_id', 'firstname lastname email')
+      .sort({ createdAt: -1 });
+
+    // Filtrer pour ne garder que ceux concernant cette boutique
+    const boutiqueSignalements = signalements.filter(sig => 
+      sig.boutique_id.toString() === boutique._id.toString()
+    );
+
+    res.json({
+      success: true,
+      count: boutiqueSignalements.length,
+      data: boutiqueSignalements
+    });
+  } catch (error) {
+    console.error('Erreur getSignalementsBoutique:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+/**
  * Supprimer un signalement (Admin)
  */
 exports.supprimerSignalement = async (req, res) => {
