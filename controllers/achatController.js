@@ -141,7 +141,7 @@ exports.getAchats = async (req, res) => {
         // Search for orders where at least one item belongs to this store
         query = {
           $or: [
-            { store_id: boutique._id },
+            // { store_id: boutique._id },
             { "items.store_id": boutique._id }
           ]
         };
@@ -159,6 +159,25 @@ exports.getAchats = async (req, res) => {
       .populate('client_id', 'name email')
       .populate('store_id', 'name description')
       .sort({ createdAt: -1 });
+
+    // Si c'est une boutique, filtrer les items pour ne garder que ceux de cette boutique
+    if (req.user.role === 'Boutique' || req.user.role === 'boutique') {
+      const boutique = req.boutique;
+      const achatsFiltered = achats.map(achat => {
+        const achatObj = achat.toObject();
+        // Ne garder que les items qui appartiennent à cette boutique
+        achatObj.items = achatObj.items.filter(item =>
+          item.store_id && item.store_id._id.toString() === boutique._id.toString()
+        );
+        return achatObj;
+      });
+
+      return res.json({
+        success: true,
+        count: achatsFiltered.length,
+        data: achatsFiltered
+      });
+    }
 
     res.json({
       success: true,
