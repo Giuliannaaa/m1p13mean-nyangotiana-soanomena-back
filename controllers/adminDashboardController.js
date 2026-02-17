@@ -120,6 +120,8 @@ exports.getRevenuePerBoutiqueAdmin = async (req, res) => {
             });
         }
 
+        const { year, month } = req.query;
+
         const decodedToken = jwt.verify(token, config.jwtSecret);
         const role = decodedToken.role;
 
@@ -133,7 +135,11 @@ exports.getRevenuePerBoutiqueAdmin = async (req, res) => {
         const revenue = await Achat.aggregate([
             {
                 $match: {
-                    status: { $in: ['CONFIRMEE', 'EN_LIVRAISON', 'DELIVREE'] }
+                    status: { $in: ['CONFIRMEE', 'EN_LIVRAISON', 'DELIVREE'] },
+                    createdAt: {
+                        $gte: new Date(year, month - 1, 1),
+                        $lt: new Date(year, month, 1)
+                    }
                 }
             },
             {
@@ -180,6 +186,7 @@ exports.getRevenuePerBoutiqueAdmin = async (req, res) => {
                 }
             }
         ]);
+
 
         res.status(200).json({
             success: true,
