@@ -3,7 +3,7 @@ const Promotion = require('../models/Promotions');
 const Produit = require('../models/Produits');
 const jwt = require('jsonwebtoken');
 const config = require('../config/config');
-const produitController = require('./produitController'); // ✅ Importer le contrôleur produit
+const produitController = require('./produitController');
 
 /**
  * Récupérer la promotion active pour un produit
