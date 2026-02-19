@@ -59,7 +59,6 @@ const UserSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
 });
 
-
 // Virtuel pour récupérer la boutique de l'utilisateur
 UserSchema.virtual('boutique', {
     ref: 'Boutique',
