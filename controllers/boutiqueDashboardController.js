@@ -356,3 +356,210 @@ exports.getActivePromotionsInMyStore = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
+
+// Revenu total des boutiques d'une personne en une année
+exports.getAnnualRevenueByOwner = async (req, res) => {
+    try {
+        let token;
+        if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+            token = req.headers.authorization.split(' ')[1];
+        }
+
+        if (!token) {
+            return res.status(401).json({ success: false, message: 'Token non fourni' });
+        }
+
+        const decodedToken = jwt.verify(token, config.jwtSecret);
+        const role = decodedToken.role;
+        const userId = decodedToken.id;
+
+        if (role !== 'Boutique') {
+            return res.status(403).json({ success: false, message: 'Accès refusé: Vous devez être Boutique' });
+        }
+
+        const { year } = req.query;
+
+        if (!year) {
+            return res.status(400).json({ success: false, message: 'Les paramètres "year" et "month" sont requis' });
+        }
+
+        const y = parseInt(year);
+        const boutiques = await Boutique.find({ ownerId: userId });
+        const boutiqueIds = boutiques.map(b => b._id);
+
+        const revenue = await Achat.aggregate([
+            {
+                $match: {
+                    status: { $in: ['CONFIRMEE', 'EN_LIVRAISON', 'DELIVREE'] },
+                    createdAt: {
+                        $gte: new Date(y, 0, 1),
+                        $lt: new Date(y + 1, 0, 1)
+                    }
+                }
+            },
+            { $unwind: "$items" },
+            {
+                $match: {
+                    "items.store_id": { $in: boutiqueIds }
+                }
+            },
+            {
+                $lookup: {
+                    from: "boutiques",
+                    localField: "items.store_id",
+                    foreignField: "_id",
+                    as: "boutiqueInfo"
+                }
+            },
+            { $unwind: "$boutiqueInfo" },
+            {
+                $group: {
+                    _id: {
+                        boutiqueId: "$boutiqueInfo._id",
+                        boutiqueName: "$boutiqueInfo.name"
+                    },
+                    totalRevenue: {
+                        $sum: { $multiply: ["$items.quantity", { $toDouble: "$items.prix_unitaire" }] }
+                    },
+                    totalOrders: { $addToSet: "$_id" } // commandes uniques
+                }
+            },
+            {
+                $project: {
+                    _id: 0,
+                    boutiqueId: "$_id.boutiqueId",
+                    boutiqueName: "$_id.boutiqueName",
+                    year: y,
+                    totalRevenue: { $round: ["$totalRevenue", 2] },
+                    totalOrders: { $size: "$totalOrders" }
+                }
+            },
+            { $sort: { totalRevenue: -1 } }
+        ]);
+
+        // Calcul du revenu global toutes boutiques confondues
+        const grandTotal = revenue.reduce((sum, b) => sum + b.totalRevenue, 0);
+
+        res.status(200).json({
+            success: true,
+            year: y,
+            grandTotal: Math.round(grandTotal * 100) / 100,
+            data: revenue
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+
+// Revenu obtenu avec chaque produit en un mois
+exports.getMonthlyRevenueByProduct = async (req, res) => {
+    try {
+        let token;
+        if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+            token = req.headers.authorization.split(' ')[1];
+        }
+
+        if (!token) {
+            return res.status(401).json({ success: false, message: 'Token non fourni' });
+        }
+
+        const decodedToken = jwt.verify(token, config.jwtSecret);
+        const role = decodedToken.role;
+        const userId = decodedToken.id;
+
+        if (role !== 'Boutique') {
+            return res.status(403).json({ success: false, message: 'Accès refusé: Vous devez être Boutique' });
+        }
+
+        const { year, month } = req.query;
+        if (!year || !month) {
+            return res.status(400).json({ success: false, message: 'Les paramètres "year" et "month" sont requis' });
+        }
+
+        const y = parseInt(year);
+        const m = parseInt(month);
+
+        const boutiques = await Boutique.find({ ownerId: userId });
+        const boutiqueIds = boutiques.map(b => b._id);
+
+        const revenue = await Achat.aggregate([
+            {
+                $match: {
+                    status: { $in: ['CONFIRMEE', 'EN_LIVRAISON', 'DELIVREE'] },
+                    createdAt: {
+                        $gte: new Date(y, m - 1, 1),
+                        $lt: new Date(y, m, 1)
+                    }
+                }
+            },
+            { $unwind: "$items" },
+            {
+                $match: {
+                    "items.store_id": { $in: boutiqueIds }
+                }
+            },
+            {
+                $lookup: {
+                    from: "produits",               // nom de la collection MongoDB
+                    localField: "items.prod_id",
+                    foreignField: "_id",
+                    as: "produitInfo"
+                }
+            },
+            { $unwind: { path: "$produitInfo", preserveNullAndEmptyArrays: true } },
+            {
+                $lookup: {
+                    from: "boutiques",
+                    localField: "items.store_id",
+                    foreignField: "_id",
+                    as: "boutiqueInfo"
+                }
+            },
+            { $unwind: "$boutiqueInfo" },
+            {
+                $group: {
+                    _id: {
+                        produitId: "$items.prod_id",
+                        nomProduit: "$items.nom_prod",
+                        boutiqueId: "$boutiqueInfo._id",
+                        boutiqueName: "$boutiqueInfo.name"
+                    },
+                    totalRevenue: {
+                        $sum: { $multiply: ["$items.quantity", { $toDouble: "$items.prix_unitaire" }] }
+                    },
+                    totalQuantitySold: { $sum: "$items.quantity" },
+                    totalOrders: { $sum: 1 }
+                }
+            },
+            {
+                $project: {
+                    _id: 0,
+                    produitId: "$_id.produitId",
+                    nomProduit: "$_id.nomProduit",
+                    boutiqueId: "$_id.boutiqueId",
+                    boutiqueName: "$_id.boutiqueName",
+                    year: y,
+                    month: m,
+                    totalRevenue: { $round: ["$totalRevenue", 2] },
+                    totalQuantitySold: 1,
+                    totalOrders: 1
+                }
+            },
+            { $sort: { totalRevenue: -1 } }
+        ]);
+
+        res.status(200).json({
+            success: true,
+            year: y,
+            month: m,
+            data: revenue
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
