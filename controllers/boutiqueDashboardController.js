@@ -230,7 +230,7 @@ exports.getOutOfStockProductsInMyStore = async (req, res) => {
                 { stock: 0 },
                 { stock_etat: false }
             ]
-        }).select('nom_prod stock stock_etat store_id image_Url');
+        }).select('nom_prod stock stock_etat store_id image_Url prix_unitaire description');
 
         res.status(200).json({
             success: true,
