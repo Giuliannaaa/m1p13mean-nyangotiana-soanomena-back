@@ -3,7 +3,7 @@ const Promotion = require('../models/Promotions');
 const Produit = require('../models/Produits');
 const jwt = require('jsonwebtoken');
 const config = require('../config/config');
-const produitController = require('./produitController'); // ✅ Importer le contrôleur produit
+const produitController = require('./produitController');
 
 /**
  * Récupérer la promotion active pour un produit
@@ -306,7 +306,7 @@ exports.updateOrderStatus = async (req, res) => {
     const oldStatus = achat.status || 'EN_ATTENTE';
 
     // 1. Vérification de l'autorisation de base par rôle
-    if (user.role === 'Acheteur') {
+    if (user.role === 'Acheteur' || user.role === 'Admin') {
       if (achat.client_id.toString() !== user.id.toString()) {
         return res.status(403).json({ success: false, message: 'Non autorisé' });
       }

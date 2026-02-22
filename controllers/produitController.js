@@ -6,6 +6,7 @@ const config = require('../config/config');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs').promises;
+const mongoose = require('mongoose');
 
 /**
  * FONCTION UTILITAIRE : Mettre à jour isPromoted basé sur les promotions actives
@@ -159,12 +160,18 @@ exports.getProduits = async (req, res) => {
     const decodedToken = jwt.verify(token, config.jwtSecret);
     const role = decodedToken.role;
 
-    const boutiqueRattachee = await Boutique.findOne({ ownerId: decodedToken.id });
-
+    const boutiqueRattachee = await Boutique.findOne({ ownerId: new mongoose.Types.ObjectId(decodedToken.id) });
     let query = {};
 
     // Si l'utilisateur est propriétaire de boutique
-    if (role === 'Boutique' && boutiqueRattachee) {
+    if (role == 'Boutique') {
+      if (!boutiqueRattachee) {
+        return res.json({
+          success: true,
+          count: 0,
+          data: []
+        });
+      }
       query.store_id = boutiqueRattachee._id;
     }
     // Si c'est un acheteur
@@ -174,7 +181,7 @@ exports.getProduits = async (req, res) => {
       query.store_id = { $in: boutiquesValidees.map(b => b._id.toString()) };
     }
     // Admin
-    else {
+    else if (role === 'Admin') {
       const boutique = await Boutique.find().select('_id');
       query.store_id = { $in: boutique.map(b => b._id) };
     }
