@@ -121,16 +121,13 @@ UserSchema.statics.countActiveBuyers = async function () {
 
 // Prendre le nombre d'utilisateurs ayant un role boutique qui ne sont pas validés(actifs)
 UserSchema.statics.countInactiveBoutiqueUsers = async function () {
-    const result = await this.aggregate([
-        {
-            $match: { role: 'Boutique', isActive: false }
-        },
-        {
-            $count: 'total'
-        }
-    ]);
+    const users = await this.find({ role: 'Boutique', isActive: false })
+        .select('-password -resetPasswordToken -resetPasswordExpire -_id -__v');
 
-    return result.length > 0 ? result[0].total : 0;
+    return {
+        total: users.length,
+        data: users
+    };
 };
 
 // Prendre le nombre total des acheteurs

@@ -73,16 +73,40 @@ exports.getInactiveBoutiqueUsersNumber = async (req, res) => {
 // Récupérer les statistiques actives (boutiques + acheteurs)
 exports.getAdminDashboardData = async (req, res) => {
     try {
-        const [activeStores, activeBuyers, activePromotions, inactiveBoutiqueUsers, totalStores, totalBuyers, totalPromotions] = await Promise.all([
+        let token;
+        if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+            token = req.headers.authorization.split(' ')[1];
+        }
+
+        // Vérifier si le token existe
+        if (!token) {
+            return res.status(401).json({
+                success: false,
+                message: 'Token non fourni'
+            });
+        }
+
+        const decodedToken = jwt.verify(token, config.jwtSecret);
+        const role = decodedToken.role;
+
+        if (role !== 'Admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'Accès refusé: Vous devez être Admin'
+            });
+        }
+
+        const [activeStores, activeBuyers, activePromotionsResult, inactiveBoutiqueResult, totalStores, totalBuyers, totalPromotions] = await Promise.all([
             Boutique.countActiveStores(),
             User.countActiveBuyers(),
             Promotion.countActivePromotions(),
             User.countInactiveBoutiqueUsers(),
-
             Boutique.countTotalStores(),
             User.countTotalBuyers(),
             Promotion.countTotalPromotions()
         ]);
+        const { total: activePromotions, data: activePromotionsData } = activePromotionsResult;
+        const { total: inactiveBoutiqueUsers, data: inactiveBoutiqueUsersData } = inactiveBoutiqueResult;
 
         res.json({
             success: true,
@@ -90,12 +114,15 @@ exports.getAdminDashboardData = async (req, res) => {
                 activeStores,
                 activeBuyers,
                 activePromotions,
+                activePromotionsData,
                 inactiveBoutiqueUsers,
+                inactiveBoutiqueUsersData,
                 totalStores,
                 totalBuyers,
                 totalPromotions
             }
         });
+
     } catch (error) {
         res.status(500).json({
             success: false,
