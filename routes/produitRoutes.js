@@ -12,29 +12,31 @@ router.post('/produits',
   produitController.createProduit
 );
 
-// GET tous les produits (pas de protection)
-router.get('/produits',
-  produitController.getProduits
-);
+// ROUTES PUBLIQUES D'ABORD (AVANT GET /produits/:id)
 
 // GET Nouveaux produits
-router.get('/produits/filter/new',
+router.get('/produits/nouveau',
   produitController.getNewProduits
 );
 
 // GET Produits populaires
-router.get('/produits/filter/popular',
+router.get('/produits/populaire',
   produitController.getPopularProduits
 );
 
 // GET Produits best-seller
-router.get('/produits/filter/bestseller',
+router.get('/produits/best-sellers',
   produitController.getBestSellerProduits
 );
 
 // GET Produits en promotion
-router.get('/produits/filter/promoted',
+router.get('/produits/promo',
   produitController.getPromotedProduits
+);
+
+// GET tous les produits (pas de protection)
+router.get('/produits',
+  produitController.getProduits
 );
 
 // GET produit par ID (DOIT ETRE APRES les routes /filter/xxx)

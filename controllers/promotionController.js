@@ -145,6 +145,97 @@ exports.deletePromotion = async (req, res) => {
 };
 
 /**
+ * NOUVELLE MÉTHODE : Obtenir les promotions actives (pour le dashboard)
+ */
+/**
+/**
+ * Obtenir les promotions actives (pour le dashboard)
+ */
+exports.getActivePromotions = async (req, res) => {
+  try {
+    const aujourd_hui = new Date();
+    
+    // NE PAS utiliser populate, récupérer les données brutes
+    const promotions = await Promotion.find({
+      est_Active: true,
+      debut: { $lte: aujourd_hui },
+      fin: { $gte: aujourd_hui }
+    })
+      .lean() // IMPORTANT : lean() retourne des objets JS, pas des documents Mongoose
+      .sort({ debut: -1 });
+
+    // ENRICHIR LES DONNÉES MANUELLEMENT
+    const Produit = require('../models/Produits');
+    const Boutique = require('../models/Boutique');
+
+    const promotionsEnrichies = await Promise.all(
+      promotions.map(async (promo) => {
+        // CONVERTIR LE MONTANT CORRECTEMENT
+        let montantValue = 0;
+        if (promo.montant) {
+          if (typeof promo.montant === 'object' && promo.montant.$numberDecimal) {
+            montantValue = parseFloat(promo.montant.$numberDecimal);
+          } else if (typeof promo.montant === 'number') {
+            montantValue = promo.montant;
+          } else {
+            // SI C'EST UNE STRING
+            montantValue = parseFloat(promo.montant.toString());
+          }
+        }
+
+        // RÉCUPÉRER LE PRODUIT ET LA BOUTIQUE
+        const produit = await Produit.findById(promo.prod_id).select('nom_prod prix_unitaire store_id').lean();
+        
+        let boutique_info = null;
+        if (produit && produit.store_id) {
+          boutique_info = await Boutique.findById(produit.store_id).select('name').lean();
+        }
+
+        // CRÉER L'AFFICHAGE SELON LE TYPE
+        let displayText = '';
+        
+        if (promo.type_prom === 'POURCENTAGE') {
+          displayText = `Réduction de ${montantValue}%`;
+        } else if (promo.type_prom === 'MONTANT') {
+          displayText = `Réduction de ${montantValue} Ar`;
+        }
+
+        return {
+          _id: promo._id,
+          nom_promo: `Promotion ${promo.type_prom === 'POURCENTAGE' ? '(%)' : '(Ar)'}`,
+          description: displayText,
+          montant: montantValue, // NOMBRE CONVERTI
+          type_prom: promo.type_prom,
+          date_fin: promo.fin,
+          debut: promo.debut,
+          boutique_id: {
+            _id: produit?.store_id,
+            name: boutique_info?.name || 'Boutique'
+          },
+          prod_id: produit,
+          createdAt: promo.createdAt
+        };
+      })
+    );
+
+    console.log('Promotions actives trouvées:', promotionsEnrichies.length);
+    console.log('Exemple:', promotionsEnrichies[0]);
+
+    res.json({
+      success: true,
+      count: promotionsEnrichies.length,
+      data: promotionsEnrichies
+    });
+  } catch (error) {
+    console.error('Erreur getActivePromotions:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+/**
  * Obtenir les produits en promotion
  */
 exports.getPromotedProduits = async (req, res) => {

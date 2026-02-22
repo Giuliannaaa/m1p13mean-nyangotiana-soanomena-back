@@ -2,25 +2,24 @@ const express = require('express');
 const router = express.Router();
 const promotionController = require('../controllers/promotionController');
 
-// CRUD promotions
-router.post('/promotions', promotionController.createPromotion);
-router.get('/promotions', promotionController.getPromotions);
+// Obtenir les promotions actives (pour le dashboard)
+router.get('/actives', promotionController.getActivePromotions);
 
-// Filtre promotion
-router.get('/filter/promoted', promotionController.getPromotedProduits);
+// Récupérer la promotion active pour un produit SPÉCIFIQUE
+router.get('/active/:prod_id', promotionController.getPromotionActiveByProduit);
 
-// TRÈS IMPORTANT : Cette route DOIT être AVANT /promotions/:id
-//router.get('/promotions/active/:prod_id', promotionController.getPromotionActiveByProduit);
-
-router.get('/promotions/active/:prod_id', promotionController.getPromotionActiveByProduit);
+// Obtenir TOUTES les promotions
 router.get('/', promotionController.getPromotions);
 
-// Les routes avec :id doivent venir APRÈS les routes spécifiques
-router.get('/promotions/:id', promotionController.getPromotionById);
-router.put('/promotions/:id', promotionController.updatePromotion);
-router.delete('/promotions/:id', promotionController.deletePromotion);
+// LES ROUTES AVEC :id DOIVENT VENIR APRÈS
+router.get('/:id', promotionController.getPromotionById);
+
+// CRUD promotions
+router.post('/', promotionController.createPromotion);
+router.put('/:id', promotionController.updatePromotion);
+router.delete('/:id', promotionController.deletePromotion);
 
 // Activer / désactiver
-router.patch('/promotions/:id/status', promotionController.togglePromotionStatus);
+router.patch('/:id/status', promotionController.togglePromotionStatus);
 
 module.exports = router;

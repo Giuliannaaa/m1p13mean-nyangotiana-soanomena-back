@@ -76,9 +76,15 @@ UserSchema.pre('save', async function (next) {
     this.password = await bcrypt.hash(this.password, salt);
 });
 
-// Sign JWT and return
+// Sign JWT and return - AVEC firstname, lastname, email
 UserSchema.methods.getSignedJwtToken = function () {
-    return jwt.sign({ id: this._id, role: this.role }, process.env.JWT_SECRET, {
+    return jwt.sign({ 
+        id: this._id, 
+        role: this.role,
+        firstname: this.firstname,
+        lastname: this.lastname,
+        email: this.email
+    }, process.env.JWT_SECRET, {
         expiresIn: process.env.JWT_EXPIRE
     });
 };

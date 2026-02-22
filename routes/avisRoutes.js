@@ -3,7 +3,10 @@ const router = express.Router();
 const avisController = require('../controllers/avisController');
 const { protect } = require('../middleware/authMiddleware');
 
-// TOUTES LES ROUTES NÉCESSITENT UNE AUTHENTIFICATION
+// ROUTE PUBLIQUE - SANS AUTHENTIFICATION
+router.get('/tous', avisController.getTousLesAvis);
+
+// TOUTES LES AUTRES ROUTES NÉCESSITENT UNE AUTHENTIFICATION
 router.use(protect);
 
 // Noter une boutique
