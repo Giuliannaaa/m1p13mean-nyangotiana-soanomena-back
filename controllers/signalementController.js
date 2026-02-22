@@ -91,15 +91,64 @@ exports.getTousSignalements = async (req, res) => {
 };
 
 /**
- * Obtenir les signalements d'une boutique (Admin/Propriétaire)
+ * ADMIN : Obtenir les signalements d'une boutique (par ID)
  */
-exports.getSignalementsBoutique = async (req, res) => {
+exports.getSignalementsBoutiqueAdmin = async (req, res) => {
   try {
     const { boutique_id } = req.params;
+
+    // Vérifier que la boutique existe
+    const boutique = await Boutique.findById(boutique_id);
+    if (!boutique) {
+      return res.status(404).json({
+        success: false,
+        message: 'Boutique non trouvée'
+      });
+    }
 
     const signalements = await Signalement.find({ boutique_id })
       .populate('acheteur_id', 'firstname lastname email')
       .populate('produit_id', 'nom_prod prix_unitaire')
+      .populate('boutique_id', 'name')
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      count: signalements.length,
+      data: signalements
+    });
+  } catch (error) {
+    console.error('Erreur getSignalementsBoutiqueAdmin:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+/**
+ * BOUTIQUE : Obtenir les signalements reçus pour ses produits
+ * Le backend récupère l'ID de la boutique du user connecté
+ */
+exports.getSignalementsBoutique = async (req, res) => {
+  try {
+    const boutiqueOwnerId = req.user.id; // L'ID du propriétaire connecté
+    
+    // Récupérer la boutique du propriétaire
+    const boutique = await Boutique.findOne({ ownerId: boutiqueOwnerId }).select('_id');
+    
+    if (!boutique) {
+      return res.status(404).json({
+        success: false,
+        message: 'Boutique non trouvée pour cet utilisateur'
+      });
+    }
+
+    // Récupérer les signalements pour cette boutique
+    const signalements = await Signalement.find({ boutique_id: boutique._id })
+      .populate('produit_id', 'nom_prod prix_unitaire')
+      .populate('acheteur_id', 'firstname lastname email')
+      .populate('boutique_id', 'name')
       .sort({ createdAt: -1 });
 
     res.json({
@@ -207,48 +256,6 @@ exports.updateStatusSignalement = async (req, res) => {
     });
   } catch (error) {
     console.error('Erreur updateStatusSignalement:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-};
-
-/**
- * Boutique : Obtenir les signalements reçus pour ses produits
- */
-exports.getSignalementsBoutique = async (req, res) => {
-  try {
-    const boutiqueId = req.user.id; // L'ID de la boutique connectée
-    
-    // Récupérer tous les produits de cette boutique
-    const boutique = await Boutique.findOne({ ownerId: boutiqueId }).select('_id');
-    
-    if (!boutique) {
-      return res.status(404).json({
-        success: false,
-        message: 'Boutique non trouvée'
-      });
-    }
-
-    // Récupérer les signalements pour les produits de cette boutique
-    const signalements = await Signalement.find()
-      .populate('produit_id', 'nom_prod')
-      .populate('acheteur_id', 'firstname lastname email')
-      .sort({ createdAt: -1 });
-
-    // Filtrer pour ne garder que ceux concernant cette boutique
-    const boutiqueSignalements = signalements.filter(sig => 
-      sig.boutique_id.toString() === boutique._id.toString()
-    );
-
-    res.json({
-      success: true,
-      count: boutiqueSignalements.length,
-      data: boutiqueSignalements
-    });
-  } catch (error) {
-    console.error('Erreur getSignalementsBoutique:', error);
     res.status(500).json({
       success: false,
       message: error.message
