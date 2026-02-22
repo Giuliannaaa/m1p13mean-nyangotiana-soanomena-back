@@ -306,7 +306,7 @@ exports.updateOrderStatus = async (req, res) => {
     const oldStatus = achat.status || 'EN_ATTENTE';
 
     // 1. Vérification de l'autorisation de base par rôle
-    if (user.role === 'Acheteur') {
+    if (user.role === 'Acheteur' || user.role === 'Admin') {
       if (achat.client_id.toString() !== user.id.toString()) {
         return res.status(403).json({ success: false, message: 'Non autorisé' });
       }
