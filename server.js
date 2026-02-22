@@ -20,14 +20,14 @@ const app = express();
 // Body parser
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use('/uploads', express.static('uploads')); // Make uploads folder static
+app.use('/uploads', express.static('uploads'));
 
 app.use(fileUpload({
     createParentPath: true,
     limits: {
-        fileSize: 50 * 1024 * 1024 // 50MB max
+        fileSize: 50 * 1024 * 1024
     },
-    parseNested: true  // Important pour parser les données imbriquées
+    parseNested: true
 }));
 
 // Enable CORS
@@ -42,57 +42,53 @@ const startServer = async () => {
             console.log(`Serveur démarré sur le port ${PORT}`)
         );
 
-        // Handle unhandled promise rejections
         process.on('unhandledRejection', (err, promise) => {
             console.log(`Error: ${err.message}`);
-            // Close server & exit process
             server.close(() => process.exit(1));
         });
-
-        // Create admin user
-
     } catch (error) {
         console.log("Failed to connect to the database. Server shutting down.");
         process.exit(1);
     }
 };
 
-// Mount routers
+// ========== MOUNT ROUTERS ==========
+
+// Auth & Products
 app.use("/api/auth", authRoutes);
 app.use("/api", produitRoutes);
 
-//Route utilisateur
+// Users
 app.use('/users', require('./routes/userRoutes'));
 
-/**--- CRUD --- */
-// Route Categorie
+// Categories
 app.use('/categories', require('./routes/categorieRoute'));
-// Route Promotion
-app.use('/', promotionRoutes);
-//app.use('/api', promotionRoutes);
 
-//Route Boutique
+// PROMOTIONS - AVEC LE BON PRÉFIXE
+app.use('/promotions', promotionRoutes);
+
+// Boutiques
 app.use('/boutiques', require('./routes/boutiqueRoutes'));
-//Route Achat
-app.use('/achats', achatRoutes); //tsy atao route fa api
-//app.use('/api/achats', require('./routes/achats'));
 
-// Route Panier (Shopping Cart)
+// Achats
+app.use('/achats', achatRoutes);
+
+// Panier
 app.use('/api/panier', require('./routes/panierRoutes'));
 
-// Route Admin Dashboard
+// Admin Dashboard
 app.use('/admin-dashboard', require('./routes/adminDashboardRoutes'));
 
-//Route suivi
+// Suivi (Follow)
 app.use('/api/suivis', suiviRoutes);
 
-//Route note boutique
+// Avis (Reviews)
 app.use('/api/avis', require('./routes/avisRoutes'));
 
-//Route signalement
+// Signalements (Reports)
 app.use('/api/signalements', require('./routes/signalementRoutes'));
 
-//Messagerie
+// Messagerie (Messages)
 app.use('/api/messages', require('./routes/messageRoutes'));
 
 startServer();

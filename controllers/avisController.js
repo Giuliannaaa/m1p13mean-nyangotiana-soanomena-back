@@ -92,6 +92,29 @@ exports.getMonAvis = async (req, res) => {
   }
 };
 
+exports.getTousLesAvis = async (req, res) => {
+  try {
+    const avis = await Avis.find()
+      .populate('acheteur_id', 'firstname lastname email')
+      .populate('boutique_id', 'name')
+      .sort({ createdAt: -1 });
+
+    console.log('Avis trouvés:', avis.length);
+
+    res.json({
+      success: true,
+      count: avis.length,
+      data: avis
+    });
+  } catch (error) {
+    console.error('Erreur récupération avis:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
 /**
  * Obtenir tous les avis d'une boutique
  */
