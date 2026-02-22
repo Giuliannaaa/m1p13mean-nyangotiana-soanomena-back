@@ -1,4 +1,8 @@
 const Categorie = require('../models/Categorie');
+const jwt = require('jsonwebtoken');
+const config = require('../config/config');
+const Boutique = require('../models/Boutique');
+const mongoose = require('mongoose');
 
 // --- Créer une catégorie ---
 exports.createCategorie = async (req, res) => {
@@ -41,8 +45,22 @@ exports.getCategories = async (req, res) => {
       const categories = await Categorie.find().sort({ createdAt: -1 });
       res.json(categories);
     } else if (role === 'Boutique') {
-      const boutique = await Boutique.findOne({ ownerId: decodedToken.id });
-      res.json(boutique);
+      const boutique = await Boutique.findOne({
+        ownerId: new mongoose.Types.ObjectId(decodedToken.id)
+      }).populate('categoryId');
+
+      if (!boutique) {
+        return res.json([]);
+      }
+
+      // Retourner uniquement la catégorie de cette boutique
+      const categorie = await Categorie.findById(boutique.categoryId);
+
+      if (!categorie) {
+        return res.json([]);
+      }
+
+      res.json([categorie]);
     } else if (role === 'Acheteur') {
       const categories = await Categorie.find().sort({ createdAt: -1 });
       res.json(categories);

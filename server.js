@@ -91,5 +91,8 @@ app.use('/api/signalements', require('./routes/signalementRoutes'));
 // Messagerie (Messages)
 app.use('/api/messages', require('./routes/messageRoutes'));
 
+// Route Boutique Dashboard
+app.use('/boutique-dashboard', require('./routes/boutiqueDashboardRoutes'));
+
 startServer();
 initUserAdmin();

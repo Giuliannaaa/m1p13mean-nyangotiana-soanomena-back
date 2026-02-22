@@ -51,16 +51,11 @@ const promo = await Promotion.findOne({
 
 // Prendre le nombre des promotions actives
 PromotionSchema.statics.countActivePromotions = async function () {
-  const result = await this.aggregate([
-    {
-      $match: { est_Active: true }
-    },
-    {
-      $count: 'total'
-    }
-  ]);
-
-  return result.length > 0 ? result[0].total : 0;
+  const result = await this.find({ est_Active: true }).populate('prod_id', 'nom_prod prix_unitaire image_Url');
+  return {
+    total: result.length,
+    data: result
+  };
 };
 
 // Prendre le nombre total des promotions
