@@ -11,14 +11,38 @@ exports.getPanier = async (req, res, next) => {
         let panier = await Panier.findOne({ client: req.user.id }).populate('items.produit');
 
         if (!panier) {
-            // Optionnel: Créer un panier vide si aucun n'existe lors de la récupération
-            // Ou retourner un objet vide/null
             return res.status(200).json({ success: true, data: { items: [], total: 0 } });
         }
 
+        // Convert to object to add dynamic properties
+        const panierObj = panier.toObject();
+        let totalGlobal = 0;
+
+        // Enrich each item with current promotion info
+        for (let item of panierObj.items) {
+            if (item.produit) {
+                const promotion = await getPromotionActive(item.produit._id);
+                const prixUnitaire = getNumeric(item.produit.prix_unitaire);
+
+                if (promotion) {
+                    item.promotion = promotion;
+                    const reduction = calculerReduction(prixUnitaire, 1, promotion);
+                    item.prixReduit = prixUnitaire - reduction;
+                } else {
+                    item.promotion = null;
+                    item.prixReduit = null;
+                }
+
+                const prixEffectif = item.prixReduit !== null ? item.prixReduit : prixUnitaire;
+                totalGlobal += prixEffectif * item.quantite;
+            }
+        }
+
+        panierObj.totalActualise = totalGlobal;
+
         res.status(200).json({
             success: true,
-            data: panier
+            data: panierObj
         });
     } catch (err) {
         console.error(err);
@@ -179,16 +203,31 @@ const getPromotionActive = async (prod_id) => {
 };
 
 /**
- * Calculer la réduction selon le type de promotion
+ * Helper to extract numeric value from Decimal128 or other formats
+ */
+const getNumeric = (val) => {
+    if (val === null || val === undefined) return 0;
+    if (typeof val === 'number') return val;
+    if (val.$numberDecimal) return parseFloat(val.$numberDecimal);
+    if (typeof val.toString === 'function') {
+        const str = val.toString();
+        return str === '[object Object]' ? 0 : parseFloat(str);
+    }
+    return parseFloat(val) || 0;
+};
+
+/**
+ * Calculer la réduction selon le type de promotion (Robust version)
  */
 const calculerReduction = (prix_unitaire, quantite, promotion) => {
     if (!promotion) return 0;
-    const montantPromo = parseFloat(promotion.montant.toString());
+    const montantPromo = getNumeric(promotion.montant);
     const totalAvantReduc = prix_unitaire * quantite;
+
     if (promotion.type_prom === 'POURCENTAGE') {
-        return totalAvantReduc * (montantPromo / 100);
+        return totalAvantReduc * (Math.abs(montantPromo) / 100);
     } else {
-        return montantPromo * quantite;
+        return Math.abs(montantPromo) * quantite;
     }
 };
 
@@ -213,15 +252,22 @@ exports.validatePanier = async (req, res, next) => {
             }
         }
 
-        // 1. Calculate totals for the entire order
+        // Calculate totals for the entire order
         let totalAchat = 0;
         let totalReduction = 0;
+        let totalQuantity = 0;
+        let hasProductType = false;
         const achatItems = [];
 
         for (const item of panier.items) {
             if (!item.produit) continue;
 
-            const prix = parseFloat(item.prixUnitaire.toString());
+            if (item.produit.type_produit === 'PRODUIT') {
+                hasProductType = true;
+                totalQuantity += item.quantite;
+            }
+
+            const prix = getNumeric(item.prixUnitaire);
             totalAchat += prix * item.quantite;
 
             // Check for active promotion
@@ -241,10 +287,22 @@ exports.validatePanier = async (req, res, next) => {
             });
         }
 
-        const frais_livraison = avecLivraison ? 3000 : 0;
+        //  Logic for shipping fees (frais_livraison)
+        let frais_livraison = 0;
+        if (avecLivraison && hasProductType) {
+            // Rule: If only one product (qty 1 of 1 distinct product)
+            if (panier.items.length === 1 && totalQuantity === 1) {
+                const item = panier.items[0];
+                const productFrais = getNumeric(item.produit.livraison?.frais);
+                frais_livraison = productFrais > 0 ? productFrais : 3000;
+            } else {
+                // Rule: product.length > 1 or quantity > 1
+                frais_livraison = 3000;
+            }
+        }
+
         const total_reel = totalAchat - totalReduction + frais_livraison;
 
-        // 2. Create the single Achat record
         const achat = new Achat({
             client_id: req.user._id || req.user.id,
             // Root store_id can be null or the first store's ID if single-store

@@ -134,7 +134,6 @@ exports.getAchats = async (req, res) => {
     // Filtrage selon le rôle
     if (req.user.role === 'Acheteur') {
       query.client_id = req.user._id;
-      console.log(`Filtrage achat pour acheteur ID: ${req.user._id}`);
     } else if (req.user.role === 'Boutique' || req.user.role === 'boutique') {
       const boutique = req.boutique;
       if (boutique) {

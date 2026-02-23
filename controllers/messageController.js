@@ -2,6 +2,8 @@ const Message = require('../models/Message');
 const Boutique = require('../models/Boutique');
 const User = require('../models/User');
 const mongoose = require('mongoose');
+const jwt = require('jsonwebtoken');
+const config = require('../config/config');
 
 /**
  * Obtenir toutes les conversations avec statut ET NOM BOUTIQUE
@@ -143,11 +145,11 @@ exports.sendMessage = async (req, res) => {
 exports.getBoutiqueContact = async (req, res) => {
   try {
     const { boutique_id } = req.params;
-    
+
     // Trouver la boutique et son propriétaire
     const boutique = await Boutique.findById(boutique_id)
       .populate('ownerId', 'firstname lastname email role');
-    
+
     if (!boutique) {
       return res.status(404).json({
         success: false,
@@ -183,7 +185,7 @@ exports.getBoutiqueContact = async (req, res) => {
 exports.getAdmins = async (req, res) => {
   try {
     const admins = await User.find({ role: 'Admin' }).select('_id firstname lastname email');
-    
+
     res.json({
       success: true,
       data: admins
@@ -306,7 +308,7 @@ exports.getAllBoutiques = async (req, res) => {
     const boutiques = await Boutique.find()
       .populate('ownerId', 'firstname lastname email')
       .select('name ownerId');
-    
+
     res.json({
       success: true,
       data: boutiques
@@ -362,6 +364,20 @@ exports.markAsRead = async (req, res) => {
  */
 exports.getUnreadCount = async (req, res) => {
   try {
+    let token;
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+      token = req.headers.authorization.split(' ')[1];
+    }
+
+    // Vérifier si le token existe
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Token non fourni'
+      });
+    }
+
+    const decodedToken = jwt.verify(token, config.jwtSecret);
     const receiver_id = req.user.id;
 
     const count = await Message.countDocuments({

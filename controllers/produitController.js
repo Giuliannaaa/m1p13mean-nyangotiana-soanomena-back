@@ -9,11 +9,12 @@ const fs = require('fs').promises;
 const mongoose = require('mongoose');
 
 /**
- * FONCTION UTILITAIRE : Mettre à jour isPromoted basé sur les promotions actives
+ * FONCTION UTILITAIRE : Récupérer et attacher les infos de promotion (isPromoted, prix_promo, etc.)
  */
-const updatePromotionStatus = async (produitId) => {
+const attachPromotionInfo = async (produit) => {
   try {
     const now = new Date();
+    const produitId = produit._id;
 
     // Chercher une promotion active pour ce produit
     const activePromotion = await Promotion.findOne({
@@ -23,12 +24,70 @@ const updatePromotionStatus = async (produitId) => {
       fin: { $gte: now }
     });
 
-    // Mettre à jour isPromoted basé sur la présence d'une promotion active
-    await Produit.findByIdAndUpdate(
-      produitId,
-      { isPromoted: !!activePromotion }, // true si promotion active, false sinon
-      //{ new: true }
-    );
+    // Convertir en objet JS simple pour pouvoir ajouter des propriétés
+    const produitObj = produit.toObject ? produit.toObject() : produit;
+
+    // Helper pour extraire une valeur numérique de Decimal128 ou autre
+    const getNumeric = (val) => {
+      if (val === null || val === undefined) return 0;
+      if (typeof val === 'number') return val;
+      if (val.$numberDecimal) return parseFloat(val.$numberDecimal);
+      if (typeof val.toString === 'function') {
+        const str = val.toString();
+        return str === '[object Object]' ? 0 : parseFloat(str);
+      }
+      return parseFloat(val) || 0;
+    };
+
+    if (activePromotion) {
+      produitObj.isPromoted = true;
+      produitObj.promotion = activePromotion;
+
+      const prixUnitaire = getNumeric(produitObj.prix_unitaire);
+      const montantPromo = getNumeric(activePromotion.montant);
+
+      if (activePromotion.type_prom === 'POURCENTAGE') {
+        // S'assurer que le prix baisse : prix * (1 - reduction/100)
+        produitObj.prix_promo = prixUnitaire * (1 - Math.abs(montantPromo) / 100);
+        console.log(produitObj.prix_promo);
+
+      } else if (activePromotion.type_prom === 'MONTANT') {
+        // S'assurer que le prix baisse : prix - montant
+        produitObj.prix_promo = Math.max(0, prixUnitaire - Math.abs(montantPromo));
+      }
+
+      // Sécurité : prix_promo ne doit pas dépasser prix_unitaire
+      if (produitObj.prix_promo > prixUnitaire) {
+        produitObj.prix_promo = prixUnitaire;
+      }
+    } else {
+      produitObj.isPromoted = false;
+      produitObj.prix_promo = null;
+      produitObj.promotion = null;
+    }
+
+    return produitObj;
+  } catch (error) {
+    console.error('Erreur attachPromotionInfo:', error);
+    return produit.toObject ? produit.toObject() : produit;
+  }
+};
+
+/**
+ * FONCTION UTILITAIRE : Mettre à jour isPromoted basé sur les promotions actives
+ * (Gardée pour compatibilité si utilisée ailleurs, mais attachPromotionInfo est plus complète)
+ */
+const updatePromotionStatus = async (produitId) => {
+  try {
+    const now = new Date();
+    const activePromotion = await Promotion.findOne({
+      prod_id: produitId,
+      est_Active: true,
+      debut: { $lte: now },
+      fin: { $gte: now }
+    });
+
+    await Produit.findByIdAndUpdate(produitId, { isPromoted: !!activePromotion });
   } catch (error) {
     console.error('Erreur updatePromotionStatus:', error);
   }
@@ -190,20 +249,16 @@ exports.getProduits = async (req, res) => {
       .populate('store_id', 'name description categoryId')
       .sort({ createdAt: -1 });
 
-    // Mettre à jour isPromoted pour chaque produit basé sur les promotions actives
+    // Enrichir chaque produit avec les infos de promotion
+    const enrichedProduits = [];
     for (const produit of produits) {
-      await updatePromotionStatus(produit._id);
+      enrichedProduits.push(await attachPromotionInfo(produit));
     }
-
-    // Récupérer les produits à nouveau avec les flags à jour
-    const produitsUpdated = await Produit.find(query)
-      .populate('store_id', 'name description categoryId')
-      .sort({ createdAt: -1 });
 
     res.json({
       success: true,
-      count: produitsUpdated.length,
-      data: produitsUpdated
+      count: enrichedProduits.length,
+      data: enrichedProduits
     });
   } catch (error) {
     console.error('Erreur dans getProduits:', error);
@@ -233,12 +288,12 @@ exports.getProduitById = async (req, res) => {
     produit.views = (produit.views || 0) + 1;
     await produit.save();
 
-    // Mettre à jour isPromoted basé sur les promotions actives
-    await updatePromotionStatus(req.params.id);
+    // Enrichir avec les infos de promotion
+    const enrichedProduit = await attachPromotionInfo(produit);
 
     res.json({
       success: true,
-      data: produit
+      data: enrichedProduit
     });
   } catch (error) {
     res.status(500).json({
@@ -394,12 +449,16 @@ exports.getNewProduits = async (req, res) => {
       .populate('store_id', 'name description')
       .sort({ createdAt: -1 });
 
-    console.log('Produits nouveaux trouvés:', produits.length);
+    // Enrichir chaque produit
+    const enrichedProduits = [];
+    for (const produit of produits) {
+      enrichedProduits.push(await attachPromotionInfo(produit));
+    }
 
     res.json({
       success: true,
-      count: produits.length,
-      data: produits
+      count: enrichedProduits.length,
+      data: enrichedProduits
     });
   } catch (error) {
     console.error('Erreur getNewProduits:', error);
@@ -424,10 +483,16 @@ exports.getPopularProduits = async (req, res) => {
       .populate('store_id', 'name description')
       .sort({ purchaseCount: -1, views: -1 });
 
+    // Enrichir chaque produit
+    const enrichedProduits = [];
+    for (const produit of produits) {
+      enrichedProduits.push(await attachPromotionInfo(produit));
+    }
+
     res.json({
       success: true,
-      count: produits.length,
-      data: produits
+      count: enrichedProduits.length,
+      data: enrichedProduits
     });
   } catch (error) {
     res.status(500).json({
@@ -446,10 +511,16 @@ exports.getBestSellerProduits = async (req, res) => {
       .populate('store_id', 'name description')
       .sort({ purchaseCount: -1 });
 
+    // Enrichir chaque produit
+    const enrichedProduits = [];
+    for (const produit of produits) {
+      enrichedProduits.push(await attachPromotionInfo(produit));
+    }
+
     res.json({
       success: true,
-      count: produits.length,
-      data: produits
+      count: enrichedProduits.length,
+      data: enrichedProduits
     });
   } catch (error) {
     res.status(500).json({
@@ -480,16 +551,16 @@ exports.getPromotedProduits = async (req, res) => {
       .populate('store_id', 'name description')
       .sort({ createdAt: -1 });
 
-    // ✅ Marquer isPromoted = true pour ces produits
-    await Produit.updateMany(
-      { _id: { $in: productIds } },
-      { isPromoted: true }
-    );
+    // Enrichir chaque produit
+    const enrichedProduits = [];
+    for (const produit of produits) {
+      enrichedProduits.push(await attachPromotionInfo(produit));
+    }
 
     res.json({
       success: true,
-      count: produits.length,
-      data: produits
+      count: enrichedProduits.length,
+      data: enrichedProduits
     });
   } catch (error) {
     res.status(500).json({
@@ -529,10 +600,17 @@ exports.getProduitOfStore = async (req, res) => {
     const produits = await Produit.find({ store_id: store_id })
       .populate('store_id', 'name description')
       .sort({ createdAt: -1 });
+
+    // Enrichir chaque produit
+    const enrichedProduits = [];
+    for (const produit of produits) {
+      enrichedProduits.push(await attachPromotionInfo(produit));
+    }
+
     res.json({
       success: true,
-      count: produits.length,
-      data: produits
+      count: enrichedProduits.length,
+      data: enrichedProduits
     });
   } catch (error) {
     res.status(500).json({
