@@ -11,29 +11,43 @@ const fileUpload = require('express-fileupload');
 const suiviRoutes = require('./routes/suiviRoutes');
 const avisRoutes = require('./routes/avisRoutes');
 const signalRoutes = require('./routes/signalementRoutes');
+const deleteExpiredAccounts = require("./utils/cron/deleteExpiredAccounts");
 
-// Load env vars
 dotenv.config();
 
 const app = express();
 
-// Body parser
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use('/uploads', express.static('uploads'));
+const PORT = process.env.PORT || 5000;
 
+// 1. CORS EN TOUT PREMIER
+app.use(cors({
+    origin: 'http://localhost:4200',
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
+}));
+app.options('*', cors());
+
+// 2. fileUpload AVANT body-parser
 app.use(fileUpload({
     createParentPath: true,
-    limits: {
-        fileSize: 50 * 1024 * 1024
-    },
+    limits: { fileSize: 50 * 1024 * 1024 },
     parseNested: true
 }));
 
-// Enable CORS
-app.use(cors({ origin: 'http://localhost:4200' }));
+// 3. Body parser SEULEMENT pour non-multipart
+app.use((req, res, next) => {
+    const contentType = req.headers['content-type'] || '';
+    if (contentType.startsWith('multipart/form-data')) {
+        return next(); // laisser fileUpload gérer
+    }
+    express.json({ limit: '50mb' })(req, res, (err) => {
+        if (err) return next(err);
+        express.urlencoded({ extended: true, limit: '50mb' })(req, res, next);
+    });
+});
 
-const PORT = process.env.PORT || 5000;
+app.use('/uploads', express.static('uploads'));
 
 const startServer = async () => {
     try {
@@ -96,3 +110,4 @@ app.use('/boutique-dashboard', require('./routes/boutiqueDashboardRoutes'));
 
 startServer();
 initUserAdmin();
+deleteExpiredAccounts();

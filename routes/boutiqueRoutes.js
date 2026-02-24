@@ -8,7 +8,6 @@ const {
   updateBoutique,
   deleteBoutique,
   toggleBoutiqueStatus,
-  // ✅ Ajouter les nouvelles méthodes
   getNewBoutiques,
   getPopularBoutiques,
   getFeaturedBoutiques,

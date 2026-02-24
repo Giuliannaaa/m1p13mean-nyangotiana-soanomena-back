@@ -4,10 +4,20 @@ const messageController = require('../controllers/messageController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 const Boutique = require('../models/Boutique');
 
+// ============================================
+// ROUTES PUBLIQUES (SANS AUTHENTIFICATION)
+// ============================================
 
 router.get('/boutiques', messageController.getAllBoutiques);
 
-// TOUTES LES ROUTES NÉCESSITENT UNE AUTHENTIFICATION
+// ============================================
+// ROUTES AVEC AUTHENTIFICATION
+// ============================================
+
+// Récupérer le nombre de messages non lus - PROTÉGÉ
+router.get('/non-lus/count', protect, messageController.getUnreadCount);
+
+// TOUTES LES AUTRES ROUTES NÉCESSITENT UNE AUTHENTIFICATION
 router.use(protect);
 
 // ENVOYER UN MESSAGE
@@ -22,25 +32,22 @@ router.get('/recus', messageController.getReceivedMessages);
 // OBTENIR LES MESSAGES ENVOYÉS
 router.get('/envoyes', messageController.getSentMessages);
 
-// OBTENIR UNE CONVERSATION SPÉCIFIQUE
-router.get('/conversation/:otherUserId/:boutique_id', messageController.getConversation);
-
 // OBTENIR TOUTES LES CONVERSATIONS
 router.get('/conversations', messageController.getConversations);
+
+// OBTENIR UNE CONVERSATION SPÉCIFIQUE - APRÈS /conversations pour éviter le conflit
+router.get('/conversation/:otherUserId/:boutique_id', messageController.getConversation);
 
 // MARQUER COMME LU
 router.patch('/:messageId/lire', messageController.markAsRead);
 
-// OBTENIR LE NOMBRE DE NON LUS
-router.get('/non-lus/count', messageController.getUnreadCount);
-
 // OBTENIR LA LISTE DES ADMINS
-router.get('/admins', protect, messageController.getAdmins);
+router.get('/admins', messageController.getAdmins);
 
 // SUPPRIMER UN MESSAGE
 router.delete('/:messageId', messageController.deleteMessage);
 
 // SUPPRIMER UNE CONVERSATION
-router.delete('/conversation/:otherUserId/:boutiqueId', protect, messageController.deleteConversation);
+router.delete('/conversation/:otherUserId/:boutiqueId', messageController.deleteConversation);
 
 module.exports = router;

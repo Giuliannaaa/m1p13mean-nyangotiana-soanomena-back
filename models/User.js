@@ -56,6 +56,7 @@ const UserSchema = new mongoose.Schema({
     isActive: { type: Boolean, default: true },
     resetPasswordToken: String,
     resetPasswordExpire: Date,
+    deleteRequestedAt: { type: Date, default: null },
     createdAt: { type: Date, default: Date.now }
 });
 
