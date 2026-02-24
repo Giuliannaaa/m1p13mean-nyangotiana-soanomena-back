@@ -99,7 +99,7 @@ exports.getTousLesAvis = async (req, res) => {
       .populate('boutique_id', 'name')
       .sort({ createdAt: -1 });
 
-    console.log('Avis trouvés:', avis.length);
+    // console.log('Avis trouvés:', avis.length);
 
     res.json({
       success: true,

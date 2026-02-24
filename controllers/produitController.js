@@ -3,7 +3,6 @@ const Boutique = require('../models/Boutique');
 const Promotion = require('../models/Promotions');
 const jwt = require('jsonwebtoken');
 const config = require('../config/config');
-const multer = require('multer');
 const path = require('path');
 const fs = require('fs').promises;
 const mongoose = require('mongoose');
@@ -49,7 +48,6 @@ const attachPromotionInfo = async (produit) => {
       if (activePromotion.type_prom === 'POURCENTAGE') {
         // S'assurer que le prix baisse : prix * (1 - reduction/100)
         produitObj.prix_promo = prixUnitaire * (1 - Math.abs(montantPromo) / 100);
-        console.log(produitObj.prix_promo);
 
       } else if (activePromotion.type_prom === 'MONTANT') {
         // S'assurer que le prix baisse : prix - montant

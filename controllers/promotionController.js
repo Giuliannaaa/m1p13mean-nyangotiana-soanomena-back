@@ -218,8 +218,8 @@ exports.getActivePromotions = async (req, res) => {
       })
     );
 
-    console.log('Promotions actives trouvées:', promotionsEnrichies.length);
-    console.log('Exemple:', promotionsEnrichies[0]);
+    // console.log('Promotions actives trouvées:', promotionsEnrichies.length);
+    // console.log('Exemple:', promotionsEnrichies[0]);
 
     res.json({
       success: true,
