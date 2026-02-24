@@ -43,4 +43,12 @@ router.delete('/admin/:signalement_id', protect, authorize('Admin'), signalement
 // Admin : Obtenir les statistiques
 router.get('/admin/stats', protect, authorize('Admin'), signalementController.getStatistiquesSignalements);
 
+
+// ============================================
+// ROUTES SANS PARAMÈTRES - AVEC AUTHENTIFICATION
+// ============================================
+
+// Récupérer le nombre de signalements non lus - AVANT tout le reste
+router.get('/unread-count', protect, signalementController.getUnreadCount);
+
 module.exports = router;
