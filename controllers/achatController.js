@@ -21,6 +21,50 @@ const getPromotionActive = async (prod_id) => {
   return promotion;
 };
 
+// Ajoute cette fonction à ton achatController.js
+
+/**
+ * Récupérer le nombre d'achats non traités
+ * Pour BOUTIQUE : achats EN_ATTENTE de confirmation
+ * Pour ACHETEUR : achats EN_ATTENTE de réponse
+ */
+exports.getUnreadCount = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userRole = req.user.role;
+    const Boutique = require('../models/Boutique');
+
+    let filter = {};
+
+    if (userRole === 'Boutique') {
+      const boutique = await Boutique.findOne({ ownerId: userId });
+      if (!boutique) return res.json({ success: true, unreadCount: 0 });
+
+      // Boutique : achats en attente de confirmation
+      filter = {
+        'items.store_id': boutique._id,
+        'items.status': 'EN_ATTENTE'
+      };
+
+    } else if (userRole === 'Acheteur') {
+      filter = {
+        client_id: userId,
+        status: { $in: ['CONFIRMEE','ANNULEE', 'EN_LIVRAISON'] }
+      };
+
+    } else {
+      return res.json({ success: true, unreadCount: 0 });
+    }
+
+    const count = await Achat.countDocuments(filter);
+    res.json({ success: true, unreadCount: count, count });
+
+  } catch (error) {
+    console.error('Erreur getUnreadCount:', error);
+    res.status(500).json({ success: false, unreadCount: 0 });
+  }
+};
+
 /**
  * Calculer la réduction selon le type de promotion
  */
