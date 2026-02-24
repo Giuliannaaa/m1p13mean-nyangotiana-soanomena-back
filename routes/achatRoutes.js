@@ -3,27 +3,52 @@ const router = express.Router();
 const achatController = require('../controllers/achatController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
-// --- Routes Achats ---
+// ============================================
+// TOUTES LES ROUTES SONT PROTÉGÉES
+// ============================================
 
-// Toutes les routes sont protégées
 router.use(protect);
 
-// Routes POST (créations) - doivent venir EN PREMIER
+// ============================================
+// ROUTES SANS PARAMÈTRES - EN PREMIER
+// ============================================
+
+// Récupérer le nombre d'achats non traités
+router.get('/unread-count', achatController.getUnreadCount);
+
+// Récupérer tous les achats
+router.get('/', achatController.getAchats);
+
+// ============================================
+// ROUTES POST
+// ============================================
+
+// Créer un achat
 router.post('/ajouter/:prod_id', authorize('Acheteur'), achatController.createAchat);
 router.post('/', authorize('Acheteur'), achatController.createAchat);
 
-// Routes GET spécifiques (avec noms de paramètres explicites) - AVANT les routes générales
+// ============================================
+// ROUTES GET SPÉCIFIQUES - AVANT /:id
+// ============================================
+
+// Récupérer les achats par boutique
 router.get('/boutique/:store_id', authorize('Boutique', 'Admin'), achatController.getAchatsByBoutique);
 
-// Routes GET générales
-// getAchats sera filtré par rôle dans le contrôleur
-router.get('/', achatController.getAchats);
+// ============================================
+// ROUTES PUT/PATCH - AVANT /:id
+// ============================================
 
-// Routes GET/DELETE par ID (les plus générales) - EN DERNIER
-router.get('/:id', achatController.getAchatById);
-router.delete('/:id', authorize('Admin'), achatController.deleteAchat);
-
-// Update achat status
+// Mettre à jour le statut
 router.put('/update-status/:id', authorize('Acheteur', 'Boutique', 'Admin'), achatController.updateOrderStatus);
+
+// ============================================
+// ROUTES AVEC :id - EN DERNIER
+// ============================================
+
+// Récupérer un achat par ID
+router.get('/:id', achatController.getAchatById);
+
+// Supprimer un achat
+router.delete('/:id', achatController.deleteAchat);
 
 module.exports = router;

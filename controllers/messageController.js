@@ -3,6 +3,60 @@ const Boutique = require('../models/Boutique');
 const User = require('../models/User');
 const mongoose = require('mongoose');
 
+// Ajoute cette fonction à ton messageController.js
+
+/**
+ * Récupérer le nombre de messages non lus
+ */
+/*exports.getUnreadCount = async (req, res) => {
+  try {
+    const Message = require('../models/Message'); // Adapter le chemin
+    const userId = req.user.id;
+
+    // Compter les messages non lus pour cet utilisateur
+    const count = await Message.countDocuments({
+      $or: [
+        { 
+          destinataire_id: userId,
+          isRead: false
+        },
+        {
+          participants: userId,
+          isRead: false,
+          'lastReadBy.userId': { $ne: userId }
+        }
+      ]
+    });
+
+    res.json({
+      success: true,
+      unreadCount: count || 0,
+      count: count || 0
+    });
+  } catch (error) {
+    console.error('Erreur getUnreadCount:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur',
+      unreadCount: 0
+    });
+  }
+};*/
+
+
+exports.getUnreadCount = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const count = await Message.countDocuments({ 
+      receiverId: userId, 
+      read: false 
+    });
+    res.json({ unreadCount: count });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
 /**
  * Obtenir toutes les conversations avec statut ET NOM BOUTIQUE
  */
