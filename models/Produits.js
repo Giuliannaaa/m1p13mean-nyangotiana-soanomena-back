@@ -18,7 +18,7 @@ const ProduitSchema = new mongoose.Schema({
   image_Url: { type: String, default: '' },
 
   // Ajouter ces champs pour les filtres spéciaux
-  isNew: { type: Boolean, default: true }, // Nouveau produit (créé il y a moins de 30 jours)
+  isProductNew: { type: Boolean, default: true }, // Nouveau produit (créé il y a moins de 30 jours)
   isBestSeller: { type: Boolean, default: false }, // Produit très vendu
   isPromoted: { type: Boolean, default: false }, // Produit en promotion spéciale
   purchaseCount: { type: Number, default: 0 }, // Nombre d'achats
@@ -41,13 +41,13 @@ ProduitSchema.pre('save', function (next) {
   }
 
   // Marquer un produit comme "nouveau" seulement s'il a moins de 30 jours
-  if (this.isNew) {
+  if (this.isProductNew) {
     const createdDate = this.createdAt || new Date();
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
     // Si le produit a plus de 30 jours, il n'est plus "nouveau"
     if (createdDate < thirtyDaysAgo) {
-      this.isNew = false;
+      this.isProductNew = false;
     }
   }
 
