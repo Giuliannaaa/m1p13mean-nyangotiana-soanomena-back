@@ -10,7 +10,7 @@ exports.createBoutique = async (req, res) => {
         const boutique = new Boutique({
             ...req.body,
             // Initialiser les champs de filtrage
-            isNew: true,
+            isStoreNew: true,
             isPopular: false,
             isFeatured: false,
             productCount: 0,

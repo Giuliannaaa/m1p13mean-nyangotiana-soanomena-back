@@ -24,7 +24,7 @@ const boutiqueSchema = new mongoose.Schema(
         ],
 
         // Ajouter ces champs pour les filtres spéciaux
-        isNew: { type: Boolean, default: true }, // Nouvelle boutique (créée il y a moins de 30 jours)
+        isStoreNew: { type: Boolean, default: true }, // Nouvelle boutique (créée il y a moins de 30 jours)
         isPopular: { type: Boolean, default: false }, // Boutique populaire
         isFeatured: { type: Boolean, default: false }, // Boutique mise en avant
         productCount: { type: Number, default: 0 }, // Nombre de produits

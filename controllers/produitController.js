@@ -155,7 +155,7 @@ exports.createProduit = async (req, res) => {
       livraison: livraison,
       image_Url: '',
       // Initialiser les champs de filtrage
-      isNew: true,
+      isProductNew: true,
       isBestSeller: false,
       isPromoted: false,
       purchaseCount: 0,
