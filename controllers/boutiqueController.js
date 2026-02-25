@@ -74,9 +74,10 @@ exports.getBoutiques = async (req, res) => {
             boutiques = await Boutique.find();
         } else if (role === 'Boutique') {
             // Boutique voit sa propre boutique
-            const boutique = await Boutique.findOne({ ownerId: decodedToken.id });
+            const boutique = await Boutique.find({ ownerId: decodedToken.id });
+
             // ✅ Mettre l'objet unique dans un tableau
-            boutiques = boutique ? [boutique] : [];
+            boutiques = boutique ? boutique : [];
         } else if (role === 'Acheteur') {
             // Acheteur voit les boutiques validées
             boutiques = await Boutique.find({ isValidated: true });
