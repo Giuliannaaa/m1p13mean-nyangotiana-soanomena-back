@@ -16,14 +16,7 @@ dotenv.config();
 const app = express();
 
 app.use(cors({
-    origin: function (origin, callback) {
-        // Autoriser les requêtes sans origin (ex: Postman, curl, serveur-à-serveur)
-        if (!origin) return callback(null, true);
-        if (allowedOrigins.indexOf(origin) !== -1) {
-            return callback(null, true);
-        }
-        return callback(new Error('Not allowed by CORS'));
-    },
+    origin: '*',
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
