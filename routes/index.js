@@ -1,6 +1,6 @@
 function setupRoutes(app) {
-    app.use("/api/auth", authRoutes);
-    app.use("/api", produitRoutes);
+    app.use("/api/auth", require('./authRoutes'));
+    app.use("/api", require('./produitRoutes'));
 
     // Users
     app.use('/users', require('./userRoutes'));
@@ -63,3 +63,5 @@ function setupRoutes(app) {
         });
     });
 }
+
+module.exports = setupRoutes;

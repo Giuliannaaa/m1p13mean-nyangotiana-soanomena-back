@@ -15,12 +15,6 @@ dotenv.config();
 
 const app = express();
 
-// CORS EN TOUT PREMIER
-const allowedOrigins = [
-    'http://localhost:4200',
-    process.env.FRONTEND_URL || 'https://supermarket-simulation.vercel.app',
-];
-
 app.use(cors({
     origin: function (origin, callback) {
         // Autoriser les requêtes sans origin (ex: Postman, curl, serveur-à-serveur)
@@ -63,7 +57,8 @@ const startServer = async () => {
         const server = app.listen(process.env.PORT || 5000, () =>
             console.log(`Serveur démarré sur le port ${process.env.PORT || 5000}`)
         );
-
+        initUserAdmin();
+        deleteExpiredAccounts();
         process.on('unhandledRejection', (err, promise) => {
             console.log(`Error: ${err.message}`);
             server.close(() => process.exit(1));
@@ -89,7 +84,6 @@ app.use(async (req, res, next) => {
 setupRoutes(app);
 
 startServer();
-initUserAdmin();
 deleteExpiredAccounts();
 
 // Export pour Vercel (serverless) – PAS de app.listen()
