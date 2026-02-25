@@ -2,40 +2,48 @@ const express = require("express");
 const dotenv = require("dotenv");
 const cors = require('cors');
 const connectDB = require("./config/database");
-const initUserAdmin = require("./utils/cron/initUserAdmin");
-const authRoutes = require("./routes/authRoutes");
-const produitRoutes = require("./routes/produitRoutes");
-const promotionRoutes = require('./routes/promotionRoutes');
-const achatRoutes = require('./routes/achatRoutes');
 const fileUpload = require('express-fileupload');
-const suiviRoutes = require('./routes/suiviRoutes');
-const avisRoutes = require('./routes/avisRoutes');
-const signalRoutes = require('./routes/signalementRoutes');
+const setupRoutes = require('./routes/index');
+const initUserAdmin = require("./utils/cron/initUserAdmin");
 const deleteExpiredAccounts = require("./utils/cron/deleteExpiredAccounts");
+
+// NOTE: Les tâches cron (initUserAdmin, deleteExpiredAccounts) ne sont pas
+// compatibles avec l'environnement serverless de Vercel. À migrer vers
+// Vercel Cron Jobs ou un service externe si nécessaire.
 
 dotenv.config();
 
 const app = express();
 
-const PORT = process.env.PORT || 5000;
+// CORS EN TOUT PREMIER
+const allowedOrigins = [
+    'http://localhost:4200',
+    process.env.FRONTEND_URL || 'https://supermarket-simulation.vercel.app',
+];
 
-// 1. CORS EN TOUT PREMIER
 app.use(cors({
-    origin: 'http://localhost:4200',
+    origin: function (origin, callback) {
+        // Autoriser les requêtes sans origin (ex: Postman, curl, serveur-à-serveur)
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.indexOf(origin) !== -1) {
+            return callback(null, true);
+        }
+        return callback(new Error('Not allowed by CORS'));
+    },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
 }));
 app.options('*', cors());
 
-// 2. fileUpload AVANT body-parser
+// fileUpload AVANT body-parser
 app.use(fileUpload({
     createParentPath: true,
     limits: { fileSize: 50 * 1024 * 1024 },
     parseNested: true
 }));
 
-// 3. Body parser SEULEMENT pour non-multipart
+// Body parser SEULEMENT pour non-multipart
 app.use((req, res, next) => {
     const contentType = req.headers['content-type'] || '';
     if (contentType.startsWith('multipart/form-data')) {
@@ -52,8 +60,8 @@ app.use('/uploads', express.static('uploads'));
 const startServer = async () => {
     try {
         await connectDB();
-        const server = app.listen(PORT, () =>
-            console.log(`Serveur démarré sur le port ${PORT}`)
+        const server = app.listen(process.env.PORT || 5000, () =>
+            console.log(`Serveur démarré sur le port ${process.env.PORT || 5000}`)
         );
 
         process.on('unhandledRejection', (err, promise) => {
@@ -66,48 +74,23 @@ const startServer = async () => {
     }
 };
 
-// ========== MOUNT ROUTERS ==========
+// Middleware de connexion MongoDB (lazy connection pour serverless)
+app.use(async (req, res, next) => {
+    try {
+        await connectDB();
+        next();
+    } catch (error) {
+        console.error('Database connection failed:', error.message);
+        res.status(500).json({ success: false, message: 'Database connection failed' });
+    }
+});
 
-// Auth & Products
-app.use("/api/auth", authRoutes);
-app.use("/api", produitRoutes);
-
-// Users
-app.use('/users', require('./routes/userRoutes'));
-
-// Categories
-app.use('/categories', require('./routes/categorieRoute'));
-
-// PROMOTIONS - AVEC LE BON PRÉFIXE
-app.use('/promotions', promotionRoutes);
-
-// Boutiques
-app.use('/boutiques', require('./routes/boutiqueRoutes'));
-
-// Achats
-app.use('/achats', achatRoutes);
-
-// Panier
-app.use('/api/panier', require('./routes/panierRoutes'));
-
-// Admin Dashboard
-app.use('/admin-dashboard', require('./routes/adminDashboardRoutes'));
-
-// Suivi (Follow)
-app.use('/api/suivis', suiviRoutes);
-
-// Avis (Reviews)
-app.use('/api/avis', require('./routes/avisRoutes'));
-
-// Signalements (Reports)
-app.use('/api/signalements', require('./routes/signalementRoutes'));
-
-// Messagerie (Messages)
-app.use('/api/messages', require('./routes/messageRoutes'));
-
-// Route Boutique Dashboard
-app.use('/boutique-dashboard', require('./routes/boutiqueDashboardRoutes'));
+// Injection de dépendances, appel de toutes les routes en une fonction
+setupRoutes(app);
 
 startServer();
 initUserAdmin();
 deleteExpiredAccounts();
+
+// Export pour Vercel (serverless) – PAS de app.listen()
+module.exports = app;
