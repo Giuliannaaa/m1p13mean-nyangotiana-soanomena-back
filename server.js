@@ -11,34 +11,11 @@ dotenv.config();
 
 const app = express();
 
-// 1. CORS Configuration
-const allowedOrigins = [
-    'https://m1p13mean-nyangotiana-soanomena-fro.vercel.app',
-    'http://localhost:4200'
-];
-
-if (process.env.FRONTEND_URL) {
-    allowedOrigins.push(process.env.FRONTEND_URL);
-}
-
-if (process.env.ALLOWED_ORIGINS) {
-    const origins = process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim());
-    allowedOrigins.push(...origins);
-}
 
 app.use(cors({
-    origin: function (origin, callback) {
-        // Allow requests with no origin (like mobile apps or curl)
-        if (!origin) return callback(null, true);
-
-        if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
-            return callback(null, true);
-        }
-        console.error(`CORS blocked for origin: ${origin}`);
-        return callback(new Error('Not allowed by CORS'));
-    },
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+    origin: true,
+    // methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    // allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
     credentials: true,
     optionsSuccessStatus: 200
 }));
