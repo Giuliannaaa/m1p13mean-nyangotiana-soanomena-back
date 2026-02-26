@@ -14,7 +14,7 @@ const app = express();
 // 1. CORS Configuration
 const allowedOrigins = [
     // 'http://localhost:4200',
-    process.env.FRONTEND_URL || 'https://supermarket-simulation.vercel.app',
+    process.env.FRONTEND_URL || 'https://m1p13mean-nyangotiana-soanomena-fro.vercel.app',
 ];
 
 app.use(cors({
