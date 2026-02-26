@@ -14,35 +14,31 @@ const app = express();
 // 1. LOW LEVEL CORS & LOGGING (Run before everything else)
 app.use((req, res, next) => {
     const origin = req.headers.origin;
-    console.log(`[CORS Request] Origin: ${origin}, Method: ${req.method}, Path: ${req.path}`);
 
-    // Always allow the specific origin if it's the known frontend
-    if (origin === 'https://m1p13mean-nyangotiana-soanomena-fro.vercel.app') {
+    // Log for debugging (remove later if you want)
+    console.log(`[CORS] Origin: ${origin || '(missing)'}, Method: ${req.method}`);
+
+    const allowedOrigins = [
+        'https://m1p13mean-nyangotiana-soanomena-fro.vercel.app',
+        'http://localhost:4200',
+    ];
+
+    // For preflight or normal request
+    if (origin && allowedOrigins.includes(origin)) {
         res.setHeader('Access-Control-Allow-Origin', origin);
-    } else {
-        // Fallback for other origins
-        res.setHeader('Access-Control-Allow-Origin', '*');
     }
 
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-    res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With, Content-Type, Authorization, Accept');
     res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
 
-    // Handle Preflight
+    // Always answer OPTIONS successfully (very important on Vercel)
     if (req.method === 'OPTIONS') {
-        return res.sendStatus(200);
+        return res.sendStatus(204);
     }
 
     next();
 });
-
-app.use(cors({
-    origin: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
-    credentials: true,
-    optionsSuccessStatus: 200
-}));
 
 // 2. Middlewares
 app.use(fileUpload({
