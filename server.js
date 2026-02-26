@@ -13,24 +13,35 @@ const app = express();
 
 // 1. CORS Configuration
 const allowedOrigins = [
-    // 'http://localhost:4200',
-    process.env.FRONTEND_URL || 'https://m1p13mean-nyangotiana-soanomena-fro.vercel.app',
+    'https://m1p13mean-nyangotiana-soanomena-fro.vercel.app',
+    'http://localhost:4200'
 ];
+
+if (process.env.FRONTEND_URL) {
+    allowedOrigins.push(process.env.FRONTEND_URL);
+}
+
+if (process.env.ALLOWED_ORIGINS) {
+    const origins = process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim());
+    allowedOrigins.push(...origins);
+}
 
 app.use(cors({
     origin: function (origin, callback) {
         // Allow requests with no origin (like mobile apps or curl)
         if (!origin) return callback(null, true);
+
         if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
             return callback(null, true);
         }
+        console.error(`CORS blocked for origin: ${origin}`);
         return callback(new Error('Not allowed by CORS'));
     },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+    credentials: true,
+    optionsSuccessStatus: 200
 }));
-app.options('*', cors());
 
 // 2. Middlewares
 app.use(fileUpload({
