@@ -11,11 +11,35 @@ dotenv.config();
 
 const app = express();
 
+// 1. LOW LEVEL CORS & LOGGING (Run before everything else)
+app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    console.log(`[CORS Request] Origin: ${origin}, Method: ${req.method}, Path: ${req.path}`);
+
+    // Always allow the specific origin if it's the known frontend
+    if (origin === 'https://m1p13mean-nyangotiana-soanomena-fro.vercel.app') {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+    } else {
+        // Fallback for other origins
+        res.setHeader('Access-Control-Allow-Origin', '*');
+    }
+
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+    res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With, Content-Type, Authorization, Accept');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+
+    // Handle Preflight
+    if (req.method === 'OPTIONS') {
+        return res.sendStatus(200);
+    }
+
+    next();
+});
 
 app.use(cors({
     origin: true,
-    // methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    // allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
     credentials: true,
     optionsSuccessStatus: 200
 }));
