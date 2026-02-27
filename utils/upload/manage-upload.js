@@ -1,6 +1,6 @@
 const path = require('path');
 const fs = require('fs').promises;
-const cloudinary = require('../config/cloudinary');
+const cloudinary = require('../../config/cloudinary');
 
 const uploadFromBuffer = (buffer, options) => {
     return new Promise((resolve, reject) => {
