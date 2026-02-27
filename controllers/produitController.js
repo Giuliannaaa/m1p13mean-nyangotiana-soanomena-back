@@ -159,7 +159,12 @@ exports.createProduit = async (req, res) => {
     });
 
     // Gérer l'image si présente
-    if (req.files && req.files.image_Url) {
+    // PROD : URL Cloudinary envoyée depuis le frontend via updateProduit après création
+    if (req.body.image_Url && typeof req.body.image_Url === 'string' && req.body.image_Url.startsWith('http')) {
+      produit.image_Url = req.body.image_Url;
+    }
+    // DEV : fichier multipart
+    else if (req.files && req.files.image_Url) {
       const { url, publicId } = await uploadImage(req.files.image_Url, `product/${produit._id}`);
       produit.image_Url = url;
       produit.publicId = publicId;
@@ -321,18 +326,23 @@ exports.updateProduit = async (req, res) => {
       }
     }
 
-    // Si un nouveau fichier est uploadé
-    if (req.files && req.files.image_Url) {
-
-      // Supprimer l'ancienne image si elle existe
+    // PROD : URL Cloudinary
+    if (req.body.image_Url && typeof req.body.image_Url === 'string' && req.body.image_Url.startsWith('http')) {
+      if (produit.image_Url && !produit.image_Url.startsWith('http')) {
+        await deleteImage({ url: produit.image_Url, publicId: produit.publicId });
+      }
+      req.body.publicId = null;
+    }
+    // DEV : fichier multipart
+    else if (req.files && req.files.image_Url) {
       if (produit.image_Url) {
         await deleteImage({ url: produit.image_Url, publicId: produit.publicId });
       }
-
       const { url, publicId } = await uploadImage(req.files.image_Url, `product/${req.params.id}`);
       req.body.image_Url = url;
       req.body.publicId = publicId;
     }
+
 
     produit = await Produit.findByIdAndUpdate(
       req.params.id,
