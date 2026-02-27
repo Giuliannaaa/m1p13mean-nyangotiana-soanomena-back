@@ -41,22 +41,23 @@ app.use((req, res, next) => {
 });
 
 // 2. Middlewares
-app.use(fileUpload({
-    createParentPath: true,
-    limits: { fileSize: 50 * 1024 * 1024 },
-    parseNested: true
-}));
-
+// JSON parsing doit être AVANT fileUpload pour que req.body soit disponible sur les JSON requests
 app.use((req, res, next) => {
     const contentType = req.headers['content-type'] || '';
     if (contentType.startsWith('multipart/form-data')) {
-        return next();
+        return next(); // fileUpload gérera ça
     }
     express.json({ limit: '50mb' })(req, res, (err) => {
         if (err) return next(err);
         express.urlencoded({ extended: true, limit: '50mb' })(req, res, next);
     });
 });
+
+app.use(fileUpload({
+    createParentPath: true,
+    limits: { fileSize: 50 * 1024 * 1024 },
+    parseNested: true
+}));
 
 app.use('/uploads', express.static('uploads'));
 
