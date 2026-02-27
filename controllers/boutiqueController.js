@@ -3,13 +3,13 @@ const jwt = require('jsonwebtoken');
 const config = require('../config/config');
 const path = require('path');
 const fs = require('fs').promises;
+const { uploadImage, deleteImages } = require('../utils/upload/manage-upload');
 
 // --- Créer une boutique ---
 exports.createBoutique = async (req, res) => {
     try {
         const boutique = new Boutique({
             ...req.body,
-            // Initialiser les champs de filtrage
             isStoreNew: true,
             isPopular: false,
             isFeatured: false,
@@ -21,33 +21,31 @@ exports.createBoutique = async (req, res) => {
 
         await boutique.save();
 
-        // Gérer les images si présentes
         if (req.files && req.files.images) {
-            const files = Array.isArray(req.files.images) ? req.files.images : [req.files.images];
-            const uploadDir = path.join('uploads/stores', boutique._id.toString());
-            await fs.mkdir(uploadDir, { recursive: true });
+            const files = Array.isArray(req.files.images)
+                ? req.files.images
+                : [req.files.images];
 
             for (const file of files) {
-                const filePath = path.join(uploadDir, file.name);
-                await file.mv(filePath);
+                const { url, publicId } = await uploadImage(file, `stores/${boutique._id}`);
+
                 boutique.images.push({
-                    url: filePath,
+                    url,
+                    publicId,
                     altText: file.name,
-                    isLogo: boutique.images.length === 0 // La première image est la couverture par défaut
+                    isLogo: boutique.images.length === 0
                 });
             }
+
             await boutique.save();
         }
 
-        res.status(201).json({
-            success: true,
-            data: boutique
-        });
+        res.status(201).json({ success: true, data: boutique });
+
     } catch (error) {
         res.status(400).json({ success: false, message: error.message });
     }
 };
-
 // --- Récupérer toutes les boutiques ---
 exports.getBoutiques = async (req, res) => {
     try {
@@ -117,14 +115,13 @@ exports.updateBoutique = async (req, res) => {
         // Gérer les nouvelles images si présentes
         if (req.files && req.files.images) {
             const files = Array.isArray(req.files.images) ? req.files.images : [req.files.images];
-            const uploadDir = path.join('uploads/stores', boutique._id.toString());
-            await fs.mkdir(uploadDir, { recursive: true });
 
             for (const file of files) {
-                const filePath = path.join(uploadDir, file.name);
-                await file.mv(filePath);
+                const { url, publicId } = await uploadImage(file, `stores/${boutique._id}`);
+
                 boutique.images.push({
-                    url: filePath,
+                    url,
+                    publicId,
                     altText: file.name
                 });
             }
@@ -138,11 +135,8 @@ exports.updateBoutique = async (req, res) => {
         });
 
         await boutique.save();
+        res.json({ success: true, data: boutique });
 
-        res.json({
-            success: true,
-            data: boutique
-        });
     } catch (error) {
         res.status(400).json({ success: false, message: error.message });
     }
@@ -154,16 +148,12 @@ exports.deleteBoutique = async (req, res) => {
         const boutique = await Boutique.findById(req.params.id);
         if (!boutique) return res.status(404).json({ success: false, message: "Boutique non trouvée" });
 
-        // Supprimer le dossier des images
-        const uploadDir = path.join('uploads/stores', req.params.id);
-        try {
-            await fs.rm(uploadDir, { recursive: true, force: true });
-        } catch (err) {
-            console.error('Erreur suppression dossier boutique:', err);
-        }
+        // Supprimer les images (local ou Cloudinary selon l'env)
+        await deleteImages(boutique.images, `stores/${req.params.id}`);
 
         await Boutique.findByIdAndDelete(req.params.id);
         res.json({ success: true, message: "Boutique supprimée avec succès" });
+
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

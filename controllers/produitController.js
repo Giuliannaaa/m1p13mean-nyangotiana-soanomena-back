@@ -6,6 +6,7 @@ const config = require('../config/config');
 const path = require('path');
 const fs = require('fs').promises;
 const mongoose = require('mongoose');
+const { uploadImage, deleteImage } = require('../utils/upload/manage-upload');
 
 /**
  * FONCTION UTILITAIRE : Récupérer et attacher les infos de promotion (isPromoted, prix_promo, etc.)
@@ -98,7 +99,6 @@ exports.createProduit = async (req, res) => {
   try {
     let store_id;
 
-    // Si l'utilisateur est un propriétaire de boutique 
     if (req.user.role === 'Boutique') {
       if (!req.boutique) {
         return res.status(403).json({
@@ -115,9 +115,7 @@ exports.createProduit = async (req, res) => {
       }
 
       store_id = req.boutique._id;
-    }
-    // Si c'est un admin, il peut spécifier le store_id
-    else if (req.user.role === 'Admin') {
+    } else if (req.user.role === 'Admin') {
       store_id = req.body.store_id;
 
       if (!store_id) {
@@ -128,33 +126,30 @@ exports.createProduit = async (req, res) => {
       }
     }
 
-    // Parser la livraison si elle est en string (à cause de multer)
     const livraison = req.body.livraison
       ? (typeof req.body.livraison === 'string'
         ? JSON.parse(req.body.livraison)
         : req.body.livraison)
       : { disponibilite: false, frais: 0 };
 
-    // Gérer le stock selon le type de produit
     if (req.body.type_produit === 'SERVICE') {
-      req.body.stock = null; // Forcer stock à null pour les services
+      req.body.stock = null;
     } else if (req.body.type_produit === 'PRODUIT') {
-      // Si stock n'est pas fourni pour un produit, utiliser l'ancien ou 0
       if (req.body.stock === undefined || req.body.stock === null || req.body.stock === '') {
-        req.body.stock = produit.stock || 0;
+        req.body.stock = 0;
       }
     }
 
     const produit = new Produit({
-      store_id: store_id,
+      store_id,
       nom_prod: req.body.nom_prod,
       descriptions: req.body.descriptions,
       prix_unitaire: req.body.prix_unitaire,
       stock_etat: req.body.stock_etat === 'true' || req.body.stock_etat === true,
       type_produit: req.body.type_produit,
-      livraison: livraison,
+      livraison,
       image_Url: '',
-      // Initialiser les champs de filtrage
+      publicId: null,
       isProductNew: true,
       isBestSeller: false,
       isPromoted: false,
@@ -163,23 +158,14 @@ exports.createProduit = async (req, res) => {
       stock: req.body.stock,
     });
 
-
-    if (req.files.image_Url) {
-      const file = req.files.image_Url;
-
-      const uploadDir = path.join('uploads/product', produit._id.toString());
-      await fs.mkdir(uploadDir, { recursive: true });
-
-      const filename = `${file.name}`;
-      const filePath = path.join(uploadDir, filename);
-
-      await file.mv(filePath);
-
-      produit.image_Url = filePath;
+    // Gérer l'image si présente
+    if (req.files && req.files.image_Url) {
+      const { url, publicId } = await uploadImage(req.files.image_Url, `product/${produit._id}`);
+      produit.image_Url = url;
+      produit.publicId = publicId;
     }
-    await produit.save();
 
-    // Peupler les infos de la boutique
+    await produit.save();
     await produit.populate('store_id', 'name description');
 
     res.status(201).json({
@@ -187,12 +173,10 @@ exports.createProduit = async (req, res) => {
       message: 'Produit ajouté avec succès',
       data: produit
     });
+
   } catch (error) {
     console.error('Erreur création produit:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -309,13 +293,9 @@ exports.updateProduit = async (req, res) => {
     let produit = await Produit.findById(req.params.id);
 
     if (!produit) {
-      return res.status(404).json({
-        success: false,
-        message: 'Produit non trouvé'
-      });
+      return res.status(404).json({ success: false, message: 'Produit non trouvé' });
     }
 
-    // Vérifier les permissions
     if (req.user.role === 'Boutique') {
       if (!req.boutique || produit.store_id.toString() !== req.boutique._id.toString()) {
         return res.status(403).json({
@@ -325,21 +305,17 @@ exports.updateProduit = async (req, res) => {
       }
     }
 
-    // Ne pas permettre de changer le store_id (sauf pour admin)
     if (req.user.role !== 'Admin') {
       delete req.body.store_id;
     }
 
-    // Parser la livraison si elle est en string (à cause de multer)
     if (req.body.livraison && typeof req.body.livraison === 'string') {
       req.body.livraison = JSON.parse(req.body.livraison);
     }
 
-    // Gérer le stock selon le type de produit
     if (req.body.type_produit === 'SERVICE') {
-      req.body.stock = null; // Forcer stock à null pour les services
+      req.body.stock = null;
     } else if (req.body.type_produit === 'PRODUIT') {
-      // Si stock n'est pas fourni pour un produit, utiliser l'ancien ou 0
       if (req.body.stock === undefined || req.body.stock === null || req.body.stock === '') {
         req.body.stock = produit.stock || 0;
       }
@@ -347,26 +323,15 @@ exports.updateProduit = async (req, res) => {
 
     // Si un nouveau fichier est uploadé
     if (req.files && req.files.image_Url) {
-      const file = req.files.image_Url;
 
-      const uploadDir = path.join('uploads/product', req.params.id);
-      await fs.mkdir(uploadDir, { recursive: true });
-
-      const filename = `${file.name}`;
-      const filePath = path.join(uploadDir, filename);
-
-      // Optionnel : Supprimer l'ancienne image si elle existe
-      if (produit.image_Url && produit.image_Url !== filePath) {
-        try {
-          await fs.unlink(produit.image_Url);
-        } catch (err) {
-          console.error('Erreur suppression ancienne image:', err);
-        }
+      // Supprimer l'ancienne image si elle existe
+      if (produit.image_Url) {
+        await deleteImage({ url: produit.image_Url, publicId: produit.publicId });
       }
 
-      await file.mv(filePath);
-
-      req.body.image_Url = filePath;
+      const { url, publicId } = await uploadImage(req.files.image_Url, `product/${req.params.id}`);
+      req.body.image_Url = url;
+      req.body.publicId = publicId;
     }
 
     produit = await Produit.findByIdAndUpdate(
@@ -375,18 +340,12 @@ exports.updateProduit = async (req, res) => {
       { new: true, runValidators: true }
     ).populate('store_id', 'name descriptions');
 
-    res.json({
-      success: true,
-      data: produit
-    });
+    res.json({ success: true, data: produit });
+
   } catch (error) {
-    res.status(400).json({
-      success: false,
-      message: error.message
-    });
+    res.status(400).json({ success: false, message: error.message });
   }
 };
-
 /**
  * Supprimer un produit
  */
@@ -395,13 +354,9 @@ exports.deleteProduit = async (req, res) => {
     const produit = await Produit.findById(req.params.id);
 
     if (!produit) {
-      return res.status(404).json({
-        success: false,
-        message: 'Produit non trouvé'
-      });
+      return res.status(404).json({ success: false, message: 'Produit non trouvé' });
     }
 
-    // Vérifier les permissions
     if (req.user.role === 'Boutique') {
       if (!req.boutique || produit.store_id.toString() !== req.boutique._id.toString()) {
         return res.status(403).json({
@@ -411,25 +366,17 @@ exports.deleteProduit = async (req, res) => {
       }
     }
 
-    await Produit.findByIdAndDelete(req.params.id);
-
-    // Supprimer le dossier des images du produit
-    const uploadDir = path.join('uploads/product', req.params.id);
-    try {
-      await fs.rm(uploadDir, { recursive: true, force: true });
-    } catch (err) {
-      console.error('Erreur suppression dossier produit:', err);
+    // Supprimer l'image (local ou Cloudinary selon l'env)
+    if (produit.image_Url) {
+      await deleteImage({ url: produit.image_Url, publicId: produit.publicId });
     }
 
-    res.json({
-      success: true,
-      message: 'Produit supprimé avec succès'
-    });
+    await Produit.findByIdAndDelete(req.params.id);
+
+    res.json({ success: true, message: 'Produit supprimé avec succès' });
+
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
