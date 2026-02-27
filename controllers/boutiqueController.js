@@ -21,6 +21,25 @@ exports.createBoutique = async (req, res) => {
 
         await boutique.save();
 
+        // PROD : URLs déjà uploadées sur Cloudinary depuis le frontend
+        if (req.body.imageUrls && req.body.imageUrls.length > 0) {
+            const imageUrls = Array.isArray(req.body.imageUrls)
+                ? req.body.imageUrls
+                : [req.body.imageUrls];
+
+            imageUrls.forEach((url, index) => {
+                boutique.images.push({
+                    url,
+                    publicId: null,
+                    altText: `image-${index}`,
+                    isLogo: index === 0
+                });
+            });
+
+            await boutique.save();
+        }
+
+        // DEV : fichiers uploadés via multipart
         if (req.files && req.files.images) {
             const files = Array.isArray(req.files.images)
                 ? req.files.images
@@ -46,6 +65,7 @@ exports.createBoutique = async (req, res) => {
         res.status(400).json({ success: false, message: error.message });
     }
 };
+
 // --- Récupérer toutes les boutiques ---
 exports.getBoutiques = async (req, res) => {
     try {
@@ -112,24 +132,33 @@ exports.updateBoutique = async (req, res) => {
         let boutique = await Boutique.findById(req.params.id);
         if (!boutique) return res.status(404).json({ success: false, message: "Boutique non trouvée" });
 
-        // Gérer les nouvelles images si présentes
-        if (req.files && req.files.images) {
-            const files = Array.isArray(req.files.images) ? req.files.images : [req.files.images];
+        // PROD : URLs Cloudinary
+        if (req.body.imageUrls && req.body.imageUrls.length > 0) {
+            const imageUrls = Array.isArray(req.body.imageUrls)
+                ? req.body.imageUrls
+                : [req.body.imageUrls];
 
-            for (const file of files) {
-                const { url, publicId } = await uploadImage(file, `stores/${boutique._id}`);
-
+            imageUrls.forEach((url, index) => {
                 boutique.images.push({
                     url,
-                    publicId,
-                    altText: file.name
+                    publicId: null,
+                    altText: `image-${index}`
                 });
+            });
+        }
+
+        // DEV : fichiers multipart
+        if (req.files && req.files.images) {
+            const files = Array.isArray(req.files.images) ? req.files.images : [req.files.images];
+            for (const file of files) {
+                const { url, publicId } = await uploadImage(file, `stores/${boutique._id}`);
+                boutique.images.push({ url, publicId, altText: file.name });
             }
         }
 
         // Mettre à jour les autres champs
         Object.keys(req.body).forEach(key => {
-            if (key !== 'images') {
+            if (key !== 'images' && key !== 'imageUrls') {
                 boutique[key] = req.body[key];
             }
         });

@@ -2,53 +2,53 @@ const User = require('../models/User');
 const Boutique = require('../models/Boutique');
 
 exports.getUsersByRole = async (req, res) => {
-    try {
-        const boutiqueUsers = await User.find({ role: 'Boutique' });
-        res.json(boutiqueUsers);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
+  try {
+    const boutiqueUsers = await User.find({ role: 'Boutique' });
+    res.json(boutiqueUsers);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 }
 
 exports.toggleUserValidation = async (req, res) => {
-    try {
-        const user = await User.findById(req.params.id);
-        if (!user) return res.status(404).json({ message: "Utilisateur non trouvé" });
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: "Utilisateur non trouvé" });
 
-        user.isActive = !user.isActive;
+    user.isActive = !user.isActive;
 
-        // Si le rôle est Boutique, on désactive aussi les boutiques qu'il détient
-        if (user.role === 'Boutique') {
-            await Boutique.updateMany({ ownerId: user._id }, { isValidated: user.isActive });
-        }
-
-        await user.save();
-
-        res.json({
-            message: `Utilisateur ${user.isActive ? 'activé' : 'désactivé'} avec succès`,
-            isActive: user.isActive
-        });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
+    // Si le rôle est Boutique, on désactive aussi les boutiques qu'il détient
+    if (user.role === 'Boutique') {
+      await Boutique.updateMany({ ownerId: user._id }, { isValidated: user.isActive });
     }
+
+    await user.save();
+
+    res.json({
+      message: `Utilisateur ${user.isActive ? 'activé' : 'désactivé'} avec succès`,
+      isActive: user.isActive
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
 exports.getAdminUsers = async (req, res) => {
-    try {
-        const users = await User.find({ role: 'Admin' });
-        res.json(users);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
+  try {
+    const users = await User.find({ role: 'Admin' });
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
 exports.getBuyerUsers = async (req, res) => {
-    try {
-        const users = await User.find({ role: 'Acheteur' });
-        res.json(users);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
+  try {
+    const users = await User.find({ role: 'Acheteur' });
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
 /**
@@ -87,7 +87,6 @@ exports.updateUserProfile = async (req, res) => {
     const { id } = req.params;
     const { firstname, lastname, phone } = req.body;
 
-    // Vérifier que l'utilisateur modifie son propre profil
     if (req.user.id !== id && req.user.role !== 'Admin') {
       return res.status(403).json({
         success: false,
@@ -95,31 +94,35 @@ exports.updateUserProfile = async (req, res) => {
       });
     }
 
-    // Préparer les données à mettre à jour
     const updateData = {};
     if (firstname) updateData.firstname = firstname;
     if (lastname) updateData.lastname = lastname;
     if (phone) updateData.phone = phone;
 
-    // Parser le document (envoyé en JSON.stringify depuis Angular)
     if (req.body.document) {
-      const doc = JSON.parse(req.body.document);
+      const doc = typeof req.body.document === 'string'
+        ? JSON.parse(req.body.document)
+        : req.body.document;
+
       updateData.document = {
         type: doc.type || '',
         number: doc.number || '',
         file: ''
       };
 
-      // Gérer le fichier uploadé via express-fileupload
-      if (req.files && req.files.documentFile) {
-        const file = req.files.documentFile;
-        const fileName = `doc_${Date.now()}_${file.name}`;
-        const uploadPath = `./uploads/documents/${firstname}/${fileName}`;
+      // PROD : URL Cloudinary envoyée depuis le frontend
+      if (req.body.documentFileUrl && req.body.documentFileUrl.startsWith('http')) {
+        updateData.document.file = req.body.documentFileUrl;
+      }
 
-        // Créer le dossier s'il n'existe pas
+      // DEV : fichier multipart
+      else if (req.files && req.files.documentFile) {
+        const file = req.files.documentFile;
+        const uploadPath = `uploads/documents/${firstname}/${file.name}`;
+
         const fs = require('fs');
-        if (!fs.existsSync('./uploads/documents')) {
-          fs.mkdirSync('./uploads/documents', { recursive: true });
+        if (!fs.existsSync(`./uploads/documents/${firstname}`)) {
+          fs.mkdirSync(`./uploads/documents/${firstname}`, { recursive: true });
         }
 
         await file.mv(uploadPath);
@@ -134,30 +137,20 @@ exports.updateUserProfile = async (req, res) => {
     ).select('-password -resetPasswordToken -resetPasswordExpire');
 
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'Utilisateur non trouvé'
-      });
+      return res.status(404).json({ success: false, message: 'Utilisateur non trouvé' });
     }
 
-    res.json({
-      success: true,
-      message: 'Profil mis à jour avec succès',
-      data: user
-    });
+    res.json({ success: true, message: 'Profil mis à jour avec succès', data: user });
 
   } catch (error) {
     console.error('Erreur updateUserProfile:', error);
-    res.status(400).json({
-      success: false,
-      message: error.message
-    });
+    res.status(400).json({ success: false, message: error.message });
   }
 };
 
 exports.getBoutiqueUsersWithDocuments = async (req, res) => {
   try {
-    const users = await User.find({ 
+    const users = await User.find({
       role: 'Boutique'
     }).select('firstname lastname email phone document isActive createdAt');
 
