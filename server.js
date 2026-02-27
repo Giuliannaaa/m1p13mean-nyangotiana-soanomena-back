@@ -16,7 +16,7 @@ app.use((req, res, next) => {
     const origin = req.headers.origin;
 
     // Log for debugging (remove later if you want)
-    console.log(`[CORS] Origin: ${origin || '(missing)'}, Method: ${req.method}`);
+    // console.log(`[CORS] Origin: ${origin || '(missing)'}, Method: ${req.method}`);
 
     const allowedOrigins = [
         'https://m1p13mean-nyangotiana-soanomena-fro.vercel.app',
