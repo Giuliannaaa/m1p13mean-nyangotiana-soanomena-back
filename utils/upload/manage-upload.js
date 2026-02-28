@@ -23,7 +23,7 @@ exports.uploadImage = async (file, folder) => {
 
         return {
             url: filePath,
-            publicId: null,
+            publicId: this.extractPublicId,
         };
     }
 
@@ -42,7 +42,7 @@ exports.uploadImage = async (file, folder) => {
 exports.deleteImage = async (image) => {
     if (isCloudinaryUrl(image.url)) {
         // Cloudinary
-        const publicId = image.publicId || image.public_id;
+        const publicId = image.publicId || image.public_id || exports.extractPublicId(image.url);
         if (publicId) {
             try {
                 await cloudinary.uploader.destroy(publicId);
@@ -68,9 +68,10 @@ exports.deleteImages = async (images, folder) => {
     if (hasXloudinaryImages) {
         // EN PROD : suppression sur Cloudinary via les publicId
         for (const image of images) {
-            if (image.publicId || image.public_id) {
+            const publicId = image.publicId || image.public_id || exports.extractPublicId(image.url);
+            if (publicId) {
                 try {
-                    await cloudinary.uploader.destroy(image.publicId || image.public_id);
+                    await cloudinary.uploader.destroy(publicId);
                 } catch (err) {
                     console.error('Erreur suppression Cloudinary:', err);
                 }
@@ -88,6 +89,20 @@ exports.deleteImages = async (images, folder) => {
 };
 
 exports.extractPublicId = (url) => {
-    const match = url.match(/\/upload\/(?:v\d+\/)?(.+)\.[a-z]+$/i);
-    return match ? match[1] : null;
+    if (!url) return null;
+    const segments = url.split('/');
+    const uploadIndex = segments.findIndex(s => s === 'upload');
+    if (uploadIndex === -1) return null;
+
+    let idSegments = segments.slice(uploadIndex + 1);
+    // Ignore version segment (e.g. v1772272729)
+    if (idSegments[0] && idSegments[0].startsWith('v') && !isNaN(idSegments[0].substring(1))) {
+        idSegments.shift();
+    }
+
+    // Join remaining segments and remove file extension
+    const idWithExt = idSegments.join('/');
+    const publicId = idWithExt.split('.')[0];
+
+    return publicId || null;
 };
