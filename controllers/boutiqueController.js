@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 const config = require('../config/config');
 const path = require('path');
 const fs = require('fs').promises;
-const { uploadImage, deleteImages } = require('../utils/upload/manage-upload');
+const { uploadImage, deleteImages, extractPublicId } = require('../utils/upload/manage-upload');
 
 // --- Créer une boutique ---
 exports.createBoutique = async (req, res) => {
@@ -94,14 +94,14 @@ exports.getBoutiques = async (req, res) => {
             // Boutique voit sa propre boutique
             const boutique = await Boutique.find({ ownerId: decodedToken.id });
 
-            // ✅ Mettre l'objet unique dans un tableau
+            // Mettre l'objet unique dans un tableau
             boutiques = boutique ? boutique : [];
         } else if (role === 'Acheteur') {
             // Acheteur voit les boutiques validées
             boutiques = await Boutique.find({ isValidated: true });
         }
 
-        // ✅ Toujours retourner un tableau
+        // Toujours retourner un tableau
         res.json({
             success: true,
             count: boutiques.length,
@@ -141,7 +141,7 @@ exports.updateBoutique = async (req, res) => {
             imageUrls.forEach((url, index) => {
                 boutique.images.push({
                     url,
-                    publicId: null,
+                    publicId: extractPublicId(url),
                     altText: `image-${index}`
                 });
             });
