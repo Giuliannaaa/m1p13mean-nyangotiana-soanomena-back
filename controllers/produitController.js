@@ -162,6 +162,7 @@ exports.createProduit = async (req, res) => {
     // PROD : URL Cloudinary envoyée depuis le frontend via updateProduit après création
     if (req.body.image_Url && typeof req.body.image_Url === 'string' && req.body.image_Url.startsWith('http')) {
       produit.image_Url = req.body.image_Url;
+      produit.publicId = extractPublicId(req.body.image_Url);
     }
     // DEV : fichier multipart
     else if (req.files && req.files.image_Url) {
@@ -330,8 +331,7 @@ exports.updateProduit = async (req, res) => {
     if (req.body.image_Url && typeof req.body.image_Url === 'string' && req.body.image_Url.startsWith('https')) {
 
       console.log('upload image (update) - produit');
-      if (produit.image_Url && !produit.image_Url.startsWith('https')) {
-
+      if (produit.image_Url) {
         await deleteImage({ url: produit.image_Url, publicId: produit.publicId });
       }
       req.body.publicId = extractPublicId(req.body.image_Url);

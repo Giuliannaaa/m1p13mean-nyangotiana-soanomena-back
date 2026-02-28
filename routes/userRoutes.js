@@ -31,8 +31,6 @@ router.put('/:id', protect, userController.updateUserProfile);
 // Valider ou invalider un utilisateur (Admin)
 router.patch('/:id/toggle-validation', protect, authorize('Admin'), userController.toggleUserValidation);
 
-router.get('/boutique-documents', protect, authorize('Admin'), userController.getBoutiqueUsersWithDocuments);
-
 router.post('/:id/request-delete', protect, userController.requestDeleteAccount);
 router.post('/:id/cancel-delete', protect, userController.cancelDeleteAccount);
 
