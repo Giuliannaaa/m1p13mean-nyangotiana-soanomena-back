@@ -6,7 +6,7 @@ const config = require('../config/config');
 const path = require('path');
 const fs = require('fs').promises;
 const mongoose = require('mongoose');
-const { uploadImage, deleteImage } = require('../utils/upload/manage-upload');
+const { uploadImage, deleteImage, extractPublicId } = require('../utils/upload/manage-upload');
 
 /**
  * FONCTION UTILITAIRE : Récupérer et attacher les infos de promotion (isPromoted, prix_promo, etc.)
@@ -327,11 +327,14 @@ exports.updateProduit = async (req, res) => {
     }
 
     // PROD : URL Cloudinary
-    if (req.body.image_Url && typeof req.body.image_Url === 'string' && req.body.image_Url.startsWith('http')) {
-      if (produit.image_Url && !produit.image_Url.startsWith('http')) {
+    if (req.body.image_Url && typeof req.body.image_Url === 'string' && req.body.image_Url.startsWith('https')) {
+
+      console.log('upload image (update) - produit');
+      if (produit.image_Url && !produit.image_Url.startsWith('https')) {
+
         await deleteImage({ url: produit.image_Url, publicId: produit.publicId });
       }
-      req.body.publicId = null;
+      req.body.publicId = extractPublicId(req.body.image_Url);
     }
     // DEV : fichier multipart
     else if (req.files && req.files.image_Url) {
@@ -356,6 +359,7 @@ exports.updateProduit = async (req, res) => {
     res.status(400).json({ success: false, message: error.message });
   }
 };
+
 /**
  * Supprimer un produit
  */
@@ -376,8 +380,11 @@ exports.deleteProduit = async (req, res) => {
       }
     }
 
+    console.log('delete image (delete) - produit');
+
     // Supprimer l'image (local ou Cloudinary selon l'env)
     if (produit.image_Url) {
+      console.log('product deleted:', produit);
       await deleteImage({ url: produit.image_Url, publicId: produit.publicId });
     }
 
