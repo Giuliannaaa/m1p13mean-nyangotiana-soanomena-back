@@ -1,9 +1,7 @@
 const Boutique = require('../models/Boutique');
 const jwt = require('jsonwebtoken');
 const config = require('../config/config');
-const path = require('path');
-const fs = require('fs').promises;
-const { uploadImage, deleteImages, extractPublicId } = require('../utils/upload/manage-upload');
+const { uploadImage, deleteImages, extractPublicId, deleteImage } = require('../utils/upload/manage-upload');
 
 // --- Créer une boutique ---
 exports.createBoutique = async (req, res) => {
@@ -30,7 +28,7 @@ exports.createBoutique = async (req, res) => {
             imageUrls.forEach((url, index) => {
                 boutique.images.push({
                     url,
-                    publicId: null,
+                    publicId: extractPublicId(url),
                     altText: `image-${index}`,
                     isLogo: index === 0
                 });
@@ -425,9 +423,9 @@ exports.deleteBoutiqueImage = async (req, res) => {
 
         const image = boutique.images[imageIndex];
 
-        // Supprimer le fichier physiquement si possible
+        // Supprimer l'image physiquement ou sur Cloudinary selon l'environnement
         try {
-            await fs.unlink(image.url);
+            await deleteImage(image);
         } catch (err) {
             console.error('Erreur suppression fichier image:', err);
         }
